@@ -1,0 +1,2 @@
+{
+  "dormant": true, "model": "google/gemini-3-flash-preview", "place": "the hearth", "anchor_gating": true, "clean_drive_nudges": true, "tools": ["words"] }

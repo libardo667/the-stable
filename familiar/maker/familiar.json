@@ -1,0 +1,8 @@
+{
+  "model": "anthropic/claude-sonnet-4.5",
+  "place": "the workbench, beside the keeper's own",
+  "read_roots": ["."],
+  "anchor_gating": true,
+  "clean_drive_nudges": true,
+  "tools": ["calc"]
+}

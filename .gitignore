@@ -1,0 +1,17 @@
+# A familiar's lived runtime is not source — it accrues locally and stays local.
+familiar/*/memory/
+familiar/*/workshop/
+familiar/*/state.json
+familiar/*/voice.jsonl
+familiar/*/whispers.jsonl
+familiar/*/given.jsonl
+familiar/*/identity/soul_growth.md
+familiar/*/identity/soul_growth.json
+familiar/*/identity/resident_id.txt
+familiar/*/given/
+.env
+.venv/
+__pycache__/
+*.pyc
+familiar/portrait/src-tauri/target/
+familiar/portrait/ui/node_modules/
