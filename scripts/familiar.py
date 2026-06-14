@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import logging
 import os
 import signal
 import sys
@@ -271,6 +272,10 @@ def _write_state(state_path: Path, *, identity, world: LocalWorld, brief: dict, 
 
 
 async def _run(args) -> None:
+    # Legible logs (timestamps + the pulse warnings — dropped/salvaged/inference) rather than silence.
+    # wake-all.sh sends stdout+stderr to a per-familiar daemon.log; here we just set the level/format.
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.getLogger("httpx").setLevel(logging.WARNING)  # one INFO line per HTTP call is noise — keep ours + warnings
     home_dir = Path(args.home).resolve()
     if not home_dir.is_absolute():
         home_dir = Path(__file__).resolve().parent.parent / args.home

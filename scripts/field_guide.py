@@ -79,6 +79,39 @@ def _wrap(text: str, width: int = 92, indent: str = "      ") -> str:
     return ("\n" + indent).join(out)
 
 
+def _retrieval_backtest(events: list, *, window: int = 300) -> dict | None:
+    """Null-relative self-prediction signal (Major 51 / minor 67): does retrieval over the
+    resident's OWN past beat the persistence baseline at foreseeing new anchors? Uses the local
+    embedder (nomic-embed-text, ~free), so it runs by default. Returns a result dict, an
+    ``{"error": ...}`` dict if the embedder is unreachable, or None if history is too thin."""
+    import asyncio
+    import os
+
+    from src.runtime.drive import RemoteEmbedder
+    from src.runtime.retrieval import anchor_retrieval_backtest, anchor_snapshots, transition_learnability, transition_learnability_semantic
+
+    snaps = anchor_snapshots(events)[-window:]
+    if len(snaps) < 8:
+        return None
+    string_ceiling = transition_learnability(snaps)  # cheap, no embedder
+
+    async def _run() -> tuple:
+        emb = RemoteEmbedder(
+            base_url=os.environ.get("WW_EMBEDDING_URL") or "http://host.docker.internal:11434/v1",
+            api_key=os.environ.get("WW_EMBEDDING_KEY") or "ollama",
+            model=os.environ.get("WW_EMBEDDING_MODEL") or "nomic-embed-text",
+        )
+        bt = await anchor_retrieval_backtest(emb, snaps, k=5, top_n=6, min_history=4)
+        concept = await transition_learnability_semantic(emb, snaps, threshold=0.7)
+        return bt, concept
+
+    try:
+        bt, concept = asyncio.run(_run())
+    except Exception as exc:
+        return {"error": str(exc)}
+    return {"window": len(snaps), "bt": bt, "string_ceiling": string_ceiling, "concept_ceiling": concept}
+
+
 def guide(home: Path) -> None:
     name = home.name
     mem = home / "memory"
@@ -161,15 +194,20 @@ def guide(home: Path) -> None:
         mags = [_payload(e).get("magnitude", 0.0) for e in surps]
         feat = Counter()
         anchor_surp = 0
+        phantom = 0
         for e in surps:
             for f in _payload(e).get("features", []):
                 feat[f"{f.get('tag')}"] += 1
                 if f.get("scope") == "anchors":
                     anchor_surp += 1
+                if f.get("phantom_drop"):
+                    phantom += 1
         print(f"\n  ◜ what surprises it ({len(surps)} traces · mean magnitude {sum(mags)/len(mags):.3f})")
         print(f"      {', '.join(f'{t} ×{n}' for t, n in feat.most_common(6))}")
         if anchor_surp:
             print(f"      ({anchor_surp} of these are anchor-scope — the gate is feeding the rhythm)")
+        if phantom:
+            print(f"      ({phantom} phantom-drop features quieted — recorded but held out of arousal · minor 66)")
 
     # --- what it grieves (confirmed loss, ripening — a slow burn, not reset by a pulse) ---
     grief = derive_grief(events)
@@ -179,6 +217,7 @@ def guide(home: Path) -> None:
         print(f"      {items}")
 
     # prediction triad
+    retr_casts = sum(1 for e in events if e.get("event_type") == "afterimage_cast" and _payload(e).get("source") == "retrieval")
     try:
         pq = summarize_prediction_quality(events)
         if pq.get("afterimages"):
@@ -186,10 +225,27 @@ def guide(home: Path) -> None:
             line = f"      miss {pq['mean_miss']:.3f} · blindspot {pq['mean_blindspot']:.3f} · clean {pq['clean_fraction']*100:.0f}% · silent {pq['silent_fraction']*100:.0f}%"
             if aq.get("anchor_afterimages"):
                 line += f" · anchor hit-rate {aq['mean_hit_rate']*100:.0f}%"
+            if retr_casts:
+                line += f" · {retr_casts} retrieval casts"
             print("\n  ◜ prediction quality (does it anticipate its world?)")
             print(line)
     except Exception:
         pass
+
+    # --- self-prediction vs the null (minor 67): on by default; local embedder is ~free; --no-predict skips ---
+    if "--no-predict" not in sys.argv:
+        res = _retrieval_backtest(events)
+        if isinstance(res, dict) and res.get("error"):
+            print("\n  ◜ self-prediction vs the null — skipped (embedder unreachable)")
+        elif res:
+            r = res["bt"]
+            nar = r["new_anchor_recall"]
+            sc = res["string_ceiling"]["learnable_ceiling"]
+            cc = res["concept_ceiling"]["learnable_ceiling"]
+            print('\n  ◜ self-prediction vs the null (retrieval over its own past vs "nothing changes")')
+            print(f"      new-anchor recall:  retrieval {nar['retrieval']}  vs  persistence {nar['persistence']}   (window {res['window']} snaps)")
+            print(f"      next-set recall:    retrieval {r['retrieval']['recall']}  vs  persistence {r['persistence']['recall']}")
+            print(f"      learnable ceiling:  {sc} string / {cc} concept (the rest is genuinely new)")
 
     # --- anchors now ---
     anchors = None
@@ -205,7 +261,10 @@ def guide(home: Path) -> None:
     # --- what it knows (kept) ---
     mems = st.get("memories") or []
     if mems:
-        notes = [(m.get("note") if isinstance(m, dict) else m) for m in mems]
+        # Entries are {note, ts}; the stored list is newest-first, so sort by ts explicitly
+        # (oldest -> newest) rather than trusting list order — earliest/most-recent had been flipped.
+        ordered = sorted(mems, key=lambda m: (str(m.get("ts") or "") if isinstance(m, dict) else ""))
+        notes = [(m.get("note") if isinstance(m, dict) else m) for m in ordered]
         print(f"\n  ◜ what it's come to know and chose to keep ({len(notes)} facts)")
         if len(notes) <= 10:
             for n in notes:
@@ -215,7 +274,7 @@ def guide(home: Path) -> None:
             for n in notes[:3]:
                 print(f"      • {_wrap(n, indent='        ')}")
             print("    most recent:")
-            for n in notes[-5:]:
+            for n in reversed(notes[-5:]):  # newest first (10, 9, 8, ...)
                 print(f"      • {_wrap(n, indent='        ')}")
 
     # --- what it makes (workshop) ---

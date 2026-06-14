@@ -80,6 +80,52 @@ def test_appearance_only_leaves_other_scopes_symmetric():
     assert {f["scope"] for f in surprise["features"]} == {"self"}
 
 
+# --- minor 66: phantom self-drops (a stale cast the world never lived) --------
+
+
+def test_self_drop_without_lived_support_is_recorded_but_quiet_for_arousal():
+    # A stale afterimage predicting a self-drive the world never lived (no baseline
+    # support) is a PHANTOM drop: recorded with its full delta (so the offline scorer
+    # still grades the over-claim as MISS), but held out of arousal so it cannot wake
+    # the resident over "an expectation I never made."
+    surprise = measure_surprise(
+        {"self": {}},
+        {"by_scope": {"self": {"vigilance": 0.3}}},
+        lived_support={},
+        drop_support_scopes=("self",),
+        drop_support_floor=0.02,
+    )
+    assert surprise["magnitude"] == pytest.approx(0.3)
+    assert surprise["arousal_magnitude"] == pytest.approx(0.0)
+    assert surprise["features"][0]["phantom_drop"] is True
+
+
+def test_self_drop_with_lived_support_still_wakes():
+    # A drop of something actually lived (the baseline holds it) is a real event.
+    surprise = measure_surprise(
+        {"self": {}},
+        {"by_scope": {"self": {"vigilance": 0.3}}},
+        lived_support={"self": {"vigilance": 0.4}},
+        drop_support_scopes=("self",),
+        drop_support_floor=0.02,
+    )
+    assert surprise["arousal_magnitude"] == pytest.approx(0.3)
+    assert "phantom_drop" not in surprise["features"][0]
+
+
+def test_self_rise_is_never_a_phantom_drop():
+    # An upward surprise (a genuinely novel stimulus) is charged regardless of support.
+    surprise = measure_surprise(
+        {"self": {"vigilance": 0.5}},
+        {"by_scope": {"self": {"vigilance": 0.1}}},
+        lived_support={},
+        drop_support_scopes=("self",),
+        drop_support_floor=0.02,
+    )
+    assert surprise["arousal_magnitude"] == pytest.approx(0.4)
+    assert "phantom_drop" not in surprise["features"][0]
+
+
 def test_stimulus_from_substrate_reads_node_activations(tmp_path):
     _seed_danger(tmp_path, 0.9)
     stimulus = stimulus_from_substrate(tmp_path)
@@ -99,6 +145,28 @@ def test_observe_surprise_records_trace_above_floor_only(tmp_path):
     quiet = observe_surprise(tmp_path, stimulus={"self": {"vigilance": 0.05}}, now=T0.isoformat())
     assert quiet is None
     assert len(_events_by_type(tmp_path, "surprise_observed")) == 1
+
+
+def test_phantom_self_drop_records_trace_but_drives_no_arousal(tmp_path):
+    # minor 66, end to end: a fossil afterimage (vigilance 0.3) the resident never lived
+    # — no baseline support — and a stimulus that simply lacks vigilance.
+    now = T0.isoformat()
+    append_runtime_event(
+        tmp_path,
+        event_type="afterimage_cast",
+        payload={"features": {"vigilance": 0.3}, "scope": "self", "confidence": 1.0, "half_life": 600, "cast_ts": now},
+    )
+    trace = observe_surprise(tmp_path, stimulus={"self": {}}, now=now)
+    # Recorded (the offline scorer still sees the over-claim)...
+    assert trace is not None and trace["magnitude"] == pytest.approx(0.3, abs=1e-2)
+    # ...but it carries no arousal weight and is flagged as a phantom.
+    assert trace["arousal_magnitude"] == pytest.approx(0.0)
+    assert trace["features"][0]["phantom_drop"] is True
+    # So the resident is not woken: the level is flat and the igniting view is empty.
+    state = arousal_state(tmp_path, now=now)
+    assert state["level"] == pytest.approx(0.0, abs=1e-6)
+    assert state["ignited"] is False
+    assert state["traces"] == []
 
 
 def test_arousal_accumulates_then_leaks(tmp_path):

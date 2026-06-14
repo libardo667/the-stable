@@ -1,9 +1,23 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timedelta, timezone
+
+import pytest
 
 from src.runtime.drive import DeterministicEmbedder
-from src.runtime.retrieval import anchor_generalization_backtest, anchor_retrieval_backtest, anchor_snapshots, transition_learnability, transition_learnability_semantic
+from src.runtime.ledger import append_runtime_event, load_runtime_events
+from src.runtime.prediction import derive_anchor_scores
+from src.runtime.retrieval import (
+    anchor_generalization_backtest,
+    anchor_retrieval_backtest,
+    anchor_snapshots,
+    cast_retrieval_afterimage,
+    predict_next_anchors,
+    transition_learnability,
+    transition_learnability_semantic,
+)
+from src.runtime.salience import arousal_state, observe_surprise
 
 
 def test_retrieval_foresees_an_alternation_that_persistence_cannot():
@@ -70,3 +84,42 @@ def test_transition_learnability_separates_recurring_from_first_time():
     lr = transition_learnability(snaps)
     assert lr["recurring"] == 1 and lr["first_time"] == 2
     assert lr["appeared"] == 3 and lr["learnable_ceiling"] == round(1 / 3, 3)
+
+
+# --- minor 67: the live wiring (predict the next anchor set from experience) ---
+
+
+def test_predict_next_anchors_foresees_the_flip():
+    # the latest snapshot is {"the bench"}; its past neighbours were each followed by
+    # {"the keeper"} → retrieval foresees the keeper returns, where persistence can't.
+    snaps = [{"the keeper"}, {"the bench"}] * 8
+    pred = asyncio.run(predict_next_anchors(DeterministicEmbedder(), snaps, k=3, top_n=2, min_history=2))
+    assert "the keeper" in pred and pred["the keeper"] == 1.0
+
+
+def test_predict_next_anchors_needs_history():
+    assert asyncio.run(predict_next_anchors(DeterministicEmbedder(), [{"a"}, {"b"}], k=3, min_history=4)) == {}
+
+
+def test_cast_retrieval_afterimage_is_scored_but_does_not_drive_arousal(tmp_path):
+    base = datetime(2026, 6, 2, 12, 0, 0, tzinfo=timezone.utc)
+    sets = [{"the keeper"}, {"the bench"}] * 8
+    for i, s in enumerate(sets):
+        append_runtime_event(
+            tmp_path,
+            event_type="anchor_observed",
+            payload={"observed_ts": (base + timedelta(seconds=i * 60)).isoformat(), "anchors": [{"anchor": a, "salience": 1.0} for a in s]},
+        )
+    now = (base + timedelta(seconds=len(sets) * 60)).isoformat()
+    cast = asyncio.run(cast_retrieval_afterimage(DeterministicEmbedder(), tmp_path, now=now, k=3, top_n=2, min_history=2))
+    # It cast an experience-derived anchor prediction...
+    assert cast is not None and cast["scope"] == "anchors" and cast["source"] == "retrieval"
+    assert "the keeper" in cast["features"]
+    events = load_runtime_events(tmp_path)
+    assert any(e.get("event_type") == "afterimage_cast" and (e.get("payload") or {}).get("source") == "retrieval" for e in events)
+    # ...the offline anchor scorer grades it (a retr- row exists)...
+    assert any(str(s.get("pulse_id") or "").startswith("retr-") for s in derive_anchor_scores(events))
+    # ...but it does NOT drive arousal: the anchor lane is scored-but-quiet, so a stimulus
+    # with no anchors leaves the level flat (no dark-room, no new wakings).
+    observe_surprise(tmp_path, stimulus={"self": {}}, now=now)
+    assert arousal_state(tmp_path, now=now)["level"] == pytest.approx(0.0, abs=1e-6)

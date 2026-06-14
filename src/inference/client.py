@@ -81,13 +81,17 @@ class InferenceClient:
         *,
         model: str | None = None,
         temperature: float = 0.7,
-        max_tokens: int = 300,
+        max_tokens: int | None = None,
         response_format: dict[str, Any] | None = None,
         images: list[str] | None = None,
     ) -> str:
         """
         Send a chat completion. Returns the assistant message text.
         Retries on transient errors (429, 500, 502, 503).
+
+        ``max_tokens=None`` (the default) omits the cap entirely, so the model finishes its thought
+        rather than being truncated mid-output — a being is not cut off mid-sentence in its own home.
+        Pass an int only where a hard ceiling is genuinely wanted.
 
         ``response_format`` is passed through to the API when set — e.g.
         ``{"type": "json_object"}`` to constrain the model to a single JSON
@@ -111,8 +115,9 @@ class InferenceClient:
                 {"role": "user", "content": user_content},
             ],
             "temperature": temperature,
-            "max_tokens": max_tokens,
         }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
         if response_format is not None:
             payload["response_format"] = response_format
 

@@ -75,6 +75,16 @@ FERVOR_THRESHOLD_SECONDS = 180.0
 SUBSTRATE_SCOPE = "self"
 NODE_STIMULUS_FLOOR = 0.05
 
+# A predicted self-drive merely going absent (predicted > stimulus) only wakes the
+# resident if it was actually LIVED — present in the slow baseline self-model at least
+# this strongly. A stale afterimage cast that the world never confirmed (baseline ~0) is
+# a phantom: its "disappearance" is the cast's own decay, not an event, and charging it
+# manufactured the self-scope disappearance-flood Maker named as "an expectation I never
+# made" (minor 66 — the self-scope analogue of the anchor scope's appearance-only rule).
+# The mismatch is still recorded so the offline scorer (prediction.py) still grades the
+# over-claim as MISS; it is only held out of the arousal magnitude.
+SELF_DROP_SUPPORT_FLOOR = 0.02
+
 # Concrete-anchor predictions (Major 51 granularity) live in their own scope. They
 # are predicted by the pulse and scored offline (prediction.derive_anchor_scores),
 # but — "scored-but-quiet" — they are held OUT of the arousal/ignition path: an
@@ -152,7 +162,15 @@ def _as_by_scope(field: Any) -> dict[str, dict[str, float]]:
     return out
 
 
-def measure_surprise(stimulus: Any, afterimage: Any, *, appearance_only_scopes: tuple[str, ...] = ()) -> dict[str, Any]:
+def measure_surprise(
+    stimulus: Any,
+    afterimage: Any,
+    *,
+    appearance_only_scopes: tuple[str, ...] = (),
+    lived_support: Any = None,
+    drop_support_scopes: tuple[str, ...] = (),
+    drop_support_floor: float = 0.0,
+) -> dict[str, Any]:
     """Mismatch between the bottom-up stimulus and the top-down afterimage.
 
     For every (scope, tag) in either field, surprise is ``|stimulus - predicted|``
@@ -168,27 +186,48 @@ def measure_surprise(stimulus: Any, afterimage: Any, *, appearance_only_scopes: 
     that absence as surprise manufactured a disappearance-flood (worsened by a
     higher mattering bar, which shrinks the realized set). The gate should fire on
     a concrete cared-about thing *appearing*, never on the bookkeeping of one
-    dropping off the top-k. Symmetric scopes (self) are unchanged: a vigilance
-    *drop* is a real event there.
+    dropping off the top-k.
+
+    ``drop_support_scopes`` are the *middle* case between symmetric and
+    appearance-only (minor 66, for the self scope). A predicted feature going
+    absent (``predicted > stimulus``) is a real event only if the resident actually
+    *lived* it — i.e. it carries ``lived_support`` (the slow baseline self-model) at
+    or above ``drop_support_floor``. A drop of something merely *cast* top-down,
+    that the world never confirmed (a stale afterimage fossil), is a **phantom**:
+    flagged ``phantom_drop`` on the feature, kept in the record (so the offline
+    predictor-scorer still grades the over-claim) but excluded from
+    ``arousal_magnitude`` so it cannot ignite. An upward surprise is never a phantom.
+    Returns both ``magnitude`` (max over all features, for grading) and
+    ``arousal_magnitude`` (max over non-phantom features, what drives the rhythm).
     """
     stim = _as_by_scope(stimulus)
     pred = _as_by_scope(afterimage)
+    support = _as_by_scope(lived_support) if lived_support is not None else {}
     features: list[dict[str, Any]] = []
     magnitude = 0.0
+    arousal_magnitude = 0.0
     for scope in sorted(set(stim) | set(pred)):
         stim_tags = stim.get(scope, {})
         pred_tags = pred.get(scope, {})
         appearance_only = scope in appearance_only_scopes
+        drop_needs_support = scope in drop_support_scopes and not appearance_only
+        support_tags = support.get(scope, {})
         for tag in sorted(set(stim_tags) | set(pred_tags)):
             s = float(stim_tags.get(tag, 0.0))
             p = float(pred_tags.get(tag, 0.0))
             delta = round(max(0.0, s - p) if appearance_only else abs(s - p), 4)
             if delta < FEATURE_EPSILON:
                 continue
-            features.append({"scope": scope, "tag": tag, "stimulus": round(s, 4), "predicted": round(p, 4), "delta": delta})
+            phantom_drop = bool(drop_needs_support and s < p and float(support_tags.get(tag, 0.0)) < drop_support_floor)
+            feature = {"scope": scope, "tag": tag, "stimulus": round(s, 4), "predicted": round(p, 4), "delta": delta}
+            if phantom_drop:
+                feature["phantom_drop"] = True
+            features.append(feature)
             magnitude = max(magnitude, delta)
+            if not phantom_drop:
+                arousal_magnitude = max(arousal_magnitude, delta)
     features.sort(key=lambda item: -float(item["delta"]))
-    return {"magnitude": round(magnitude, 4), "features": features}
+    return {"magnitude": round(magnitude, 4), "arousal_magnitude": round(arousal_magnitude, 4), "features": features}
 
 
 def stimulus_from_substrate(memory_dir: Path) -> dict[str, dict[str, float]]:
@@ -255,7 +294,16 @@ def observe_surprise(
     # The anchor scope is appearance-weighted: a cared-about thing showing up
     # surprises; a held anchor merely dropping off the gated top-k does not (it was
     # manufacturing a disappearance-flood — see measure_surprise).
-    surprise = measure_surprise(stimulus, prediction, appearance_only_scopes=(ANCHOR_SCOPE,))
+    # Self-scope drops require lived support: a stale afterimage fossil the world never
+    # confirmed (baseline ~0) is recorded but not allowed to wake the resident (minor 66).
+    surprise = measure_surprise(
+        stimulus,
+        prediction,
+        appearance_only_scopes=(ANCHOR_SCOPE,),
+        lived_support=prediction.get("baseline"),
+        drop_support_scopes=(SUBSTRATE_SCOPE,),
+        drop_support_floor=SELF_DROP_SUPPORT_FLOOR,
+    )
 
     # Grief (reviewer round 4): appearance-weighting makes absence cost nothing *instantly*,
     # which is right for churn and wrong for loss. So we record, separately from instantaneous
@@ -280,6 +328,7 @@ def observe_surprise(
     trace = {
         "trace_id": trace_id,
         "magnitude": surprise["magnitude"],
+        "arousal_magnitude": surprise["arousal_magnitude"],
         "features": surprise["features"],
         "valence": valence,
         "observed_ts": now_iso,
@@ -433,7 +482,13 @@ def derive_arousal(events: list[dict[str, Any]], *, now: Any = None) -> dict[str
             continue
         if since is not None and observed_dt <= since:
             continue  # consumed by the previous ignition
-        magnitude = _coerce_float(payload.get("magnitude")) or 0.0
+        # Arousal responds only to the genuinely wake-worthy surprise. A phantom drop — a
+        # stale top-down prediction the world never confirmed — is recorded in the trace
+        # (so the offline scorer still sees the over-claim) but carries an arousal_magnitude
+        # that excludes it, so it never accumulates toward ignition. Pre-minor-66 traces
+        # have no such field and fall back to the full magnitude (behaviour-preserving).
+        arousal_mag = _coerce_float(payload.get("arousal_magnitude"))
+        magnitude = arousal_mag if arousal_mag is not None else (_coerce_float(payload.get("magnitude")) or 0.0)
         age = max(0.0, (now_dt - observed_dt).total_seconds())
         decayed = magnitude * (0.5 ** (age / AROUSAL_HALF_LIFE_SECONDS)) if AROUSAL_HALF_LIFE_SECONDS > 0 else 0.0
         if decayed <= 0.0:
@@ -444,7 +499,9 @@ def derive_arousal(events: list[dict[str, Any]], *, now: Any = None) -> dict[str
                 "trace_id": str(payload.get("trace_id") or "").strip(),
                 "magnitude": round(magnitude, 4),
                 "contribution": round(decayed, 4),
-                "features": list(payload.get("features") or []),
+                # A roused pulse should not be told it was surprised by a ghost: phantom-drop
+                # features are held out of the igniting-trace view (they remain in the ledger).
+                "features": [f for f in (payload.get("features") or []) if not (isinstance(f, dict) and f.get("phantom_drop"))],
                 "valence": payload.get("valence"),
                 "observed_ts": observed_dt.isoformat(),
             }

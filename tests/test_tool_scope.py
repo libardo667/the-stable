@@ -90,6 +90,22 @@ async def test_recall_is_granted_to_every_familiar_and_reads_its_own_past(tmp_pa
     assert "Nothing you've kept" in (await scope.call("recall", "zebra"))["result"]
 
 
+async def test_recall_reaches_the_familiars_own_workshop_makings(tmp_path: Path):
+    """A familiar's workshop is its OWN (its makings), but it lives as gitignored files that the
+    `search` tool skips — so recall must reach it. A theme that appears only in a workshop entry is
+    found and marked '(a making)' (Major 71 / Lever 1)."""
+    import json
+    md = tmp_path / "memory"
+    md.mkdir()
+    (md / "kept_memory.jsonl").write_text(json.dumps({"note": "the lamp by the door", "kept_ts": "2026-06-03T10:00:00+00:00"}) + "\n")
+    ws = tmp_path / "workshop"
+    ws.mkdir()
+    (ws / "journal.md").write_text("# first sitting\n\nThe cliff drops curiosity to zero, every time.\n")
+    scope = build_tool_scope(None, memory_dir=md)
+    hit = (await scope.call("recall", "cliff"))["result"]
+    assert "(a making)" in hit and "drops curiosity to zero" in hit
+
+
 async def test_search_is_granted_with_filescope_and_respects_its_guards(tmp_path: Path):
     from src.familiar.file_scope import FileScope
     root = tmp_path / "r"

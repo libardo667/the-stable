@@ -27,10 +27,13 @@ and not from mere stickiness. That is the first faint signal of self-prediction.
 
 from __future__ import annotations
 
+import uuid
+from datetime import datetime, timezone
 from typing import Any
 
 from src.runtime.drive import Embedder, _cosine
-from src.runtime.ledger import load_runtime_events
+from src.runtime.ledger import append_runtime_event, load_runtime_events
+from src.runtime.salience import ANCHOR_SCOPE
 
 
 def anchor_snapshots(events: list[dict[str, Any]], *, salience_floor: float = 0.0) -> list[set[str]]:
@@ -253,3 +256,97 @@ async def transition_learnability_semantic(embedder: Embedder, snapshots: list[s
 async def backtest_from_ledger(embedder: Embedder, memory_dir: Any, *, k: int = 5, top_n: int = 6) -> dict[str, Any]:
     """Convenience: run the anchor retrieval backtest over a resident's ledger."""
     return await anchor_retrieval_backtest(embedder, anchor_snapshots(load_runtime_events(memory_dir)), k=k, top_n=top_n)
+
+
+# --- the live wiring (Rung 3, first stone): predict the next anchor set from experience ---
+
+
+async def predict_next_anchors(
+    embedder: Embedder,
+    snapshots: list[set[str]],
+    *,
+    k: int = 5,
+    top_n: int = 6,
+    min_history: int = 4,
+    max_history: int = 300,
+    cache: dict[str, list[float]] | None = None,
+) -> dict[str, float]:
+    """Predict the NEXT anchor set from the latest snapshot — the live counterpart of
+    ``anchor_retrieval_backtest``. kNN over past snapshots (by anchor-set embedding),
+    voting over what actually *followed* each neighbour; returns ``{anchor: weight}`` with
+    the strongest vote normalized to 1.0, or ``{}`` if history is too thin or the current
+    snapshot can't be embedded. Pure recall of the resident's own past — it can only echo
+    what has happened, so it has no dark-room dynamics. Pass a persistent ``cache`` so the
+    live path doesn't re-embed the whole history each call; ``max_history`` bounds both the
+    embed work and the neighbour scan to the most recent snapshots.
+    """
+    sets = [set(s) for s in snapshots if s]
+    if len(sets) <= min_history:
+        return {}
+    if max_history and len(sets) > max_history:
+        sets = sets[-max_history:]
+    n = len(sets)
+    if cache is None:
+        cache = {}
+    await _embed_into(embedder, [_as_text(s) for s in sets], cache)
+    q = cache.get(_as_text(sets[-1]))
+    if not q:
+        return {}
+    sims: list[tuple[int, float]] = []
+    for j in range(n - 1):  # past snapshots whose successor sets[j+1] is known
+        v = cache.get(_as_text(sets[j]))
+        if v:
+            c = _cosine(q, v)
+            if c > 0.0:
+                sims.append((j, c))
+    sims.sort(key=lambda x: -x[1])
+    votes: dict[str, float] = {}
+    for j, s in sims[:k]:
+        for a in sets[j + 1]:
+            votes[a] = votes.get(a, 0.0) + s
+    if not votes:
+        return {}
+    top = sorted(votes, key=lambda a: -votes[a])[:top_n]
+    peak = max(votes[a] for a in top) or 1.0
+    return {a: round(votes[a] / peak, 4) for a in top}
+
+
+async def cast_retrieval_afterimage(
+    embedder: Embedder,
+    memory_dir: Any,
+    *,
+    now: Any = None,
+    k: int = 5,
+    top_n: int = 6,
+    min_history: int = 4,
+    confidence: float = 0.6,
+    half_life: float = 600.0,
+    cache: dict[str, list[float]] | None = None,
+    events: list[dict[str, Any]] | None = None,
+) -> dict[str, Any] | None:
+    """Cast a retrieval-derived prediction of the next anchor set as an ``afterimage_cast``
+    (scope ``anchors``, ``source="retrieval"``). The first live wiring of self-prediction
+    (Major 51, Rung 3): the substrate predicts the concrete things it cares about from its
+    own past, scored offline against the realized anchor field
+    (``prediction.derive_anchor_scores``). It lands in the ANCHOR lane, which is
+    *scored-but-quiet* — it does NOT drive arousal unless anchor-gating is on — so it carries
+    no dark-room risk and changes no wakings. Returns the cast payload, or ``None`` when
+    history is too thin. Best-effort: a flaky embedder must never break the tick."""
+    if embedder is None:
+        return None
+    if events is None:
+        events = load_runtime_events(memory_dir)
+    pred = await predict_next_anchors(embedder, anchor_snapshots(events), k=k, top_n=top_n, min_history=min_history, cache=cache)
+    if not pred:
+        return None
+    payload = {
+        "pulse_id": f"retr-{uuid.uuid4().hex[:12]}",
+        "cast_ts": (str(now).strip() if now else datetime.now(timezone.utc).isoformat()),
+        "scope": ANCHOR_SCOPE,
+        "features": pred,
+        "confidence": confidence,
+        "half_life": half_life,
+        "source": "retrieval",
+    }
+    append_runtime_event(memory_dir, event_type="afterimage_cast", payload=payload)
+    return payload

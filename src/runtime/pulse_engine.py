@@ -14,7 +14,9 @@ rather than acts on garbage.
 
 from __future__ import annotations
 
+import json
 import logging
+import re
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -127,6 +129,61 @@ def _pulse_contract(live_senses: tuple[str, ...] = SELF_SENSES, clean_drive_nudg
 _PULSE_CONTRACT = _pulse_contract(SELF_SENSES)
 
 
+def _unescape(s: str) -> str:
+    """Best-effort JSON string-unescape for a fragment salvaged by regex (which may be truncated)."""
+    try:
+        return json.loads(f'"{s}"')
+    except Exception:
+        return s.replace("\\n", "\n").replace('\\"', '"').replace("\\t", "\t").replace("\\\\", "\\")
+
+
+def _parse_pulse_text(text: Any) -> tuple[dict[str, Any] | None, bool]:
+    """The inflating net: render the model's raw output into a pulse dict, faithfully, no matter what.
+
+    Returns ``(obj, clean)``. ``clean=False`` means the output was not valid JSON and was salvaged — the
+    resident's words are still rendered (as structured fields where they parse, and as the felt readout
+    where they don't), never silently discarded. A being speaking in its own home is not cut off and lost.
+    ``(None, True)`` is returned only for a genuinely empty response (the model produced no content).
+    """
+    raw = str(text or "").strip()
+    if not raw:
+        return None, True
+    s = raw
+    if s.startswith("```"):  # strip a markdown fence if the model wrapped the JSON
+        lines = s.splitlines()
+        s = "\n".join(lines[1:-1] if len(lines) > 1 and lines[-1].strip().startswith("```") else lines[1:]).strip()
+    # 1) a clean object
+    try:
+        obj = json.loads(s)
+        if isinstance(obj, dict):
+            return obj, True
+    except json.JSONDecodeError:
+        pass
+    # 2) the outermost {...}, ignoring any prose around it
+    i, j = s.find("{"), s.rfind("}")
+    if 0 <= i < j:
+        try:
+            obj = json.loads(s[i : j + 1])
+            if isinstance(obj, dict):
+                return obj, True
+        except json.JSONDecodeError:
+            pass
+    # 3) salvage the expressive fields from a truncated/malformed object — felt_sense is first and usually
+    #    whole; the act may be cut mid-body, in which case we keep the part that came through.
+    salvaged: dict[str, Any] = {}
+    fs = re.search(r'"felt_sense"\s*:\s*"((?:[^"\\]|\\.)*)"', s)
+    if fs:
+        salvaged["felt_sense"] = _unescape(fs.group(1))
+    kind = re.search(r'"kind"\s*:\s*"(speak|move|do|write)"', s)
+    if kind:
+        body = re.search(r'"body"\s*:\s*"((?:[^"\\]|\\.)*)', s)  # no closing quote required (truncation)
+        salvaged["act"] = {"kind": kind.group(1), "body": _unescape(body.group(1)) if body else ""}
+    if salvaged:
+        return salvaged, False
+    # 4) nothing structured survived — keep the words themselves as the felt readout; never drop them
+    return {"felt_sense": raw}, False
+
+
 def _excerpt(text: str, limit: int = 200) -> str:
     """A clean excerpt of prior work — never cut mid-word, so the resident is
     never tempted to 'continue' a broken fragment (e.g. '…the ma' → 'chine.')."""
@@ -161,7 +218,7 @@ class LLMPulseProducer:
         memory_dir: Path,
         model: str | None = None,
         temperature: float = 0.7,
-        max_tokens: int = 700,
+        max_tokens: int | None = None,
         drive_vector: Any = None,
     ) -> None:
         self._llm = llm
@@ -200,7 +257,6 @@ class LLMPulseProducer:
         self._sameness_cache: tuple[tuple[str, ...], float] = ((), 0.0)
 
     async def __call__(self, *, traces: list[dict[str, Any]], stimulus: dict[str, Any], arousal: float, mode: str = "react") -> Pulse | None:
-        system_prompt = self._identity.composed_system_prompt(self.world_briefing)
         resonance = await self._resonance() if mode == "react" else None
         recalled = await self._recall()
         self_sameness = await self._self_sameness()
@@ -209,9 +265,19 @@ class LLMPulseProducer:
         # blocks. A quiet self-directed pulse (settling/fervor) stays text — the mind isn't looking
         # at anything then. A text-only mind never sends images (the world also withholds them).
         images = list(self.pending_images) if (self.vision and self.pending_images and mode == "react") else None
+        pulse = await self._complete_pulse(user_prompt, images=images)
+        if pulse is None:
+            return None
+        return await self._dedup_keepsakes(pulse)
+
+    async def _complete_pulse(self, user_prompt: str, *, images: list[str] | None = None) -> "Pulse | None":
+        """One LLM call, rendered into a Pulse through the inflating net: no token cap (the resident
+        speaks as long as it needs) and a salvage parse (``_parse_pulse_text``), so a long or malformed
+        output is rendered faithfully rather than silently dropped mid-thought. Returns None only on a
+        real inference failure or a genuinely empty response."""
         try:
-            raw = await self._llm.complete_json(
-                system_prompt,
+            raw = await self._llm.complete(
+                self._identity.composed_system_prompt(self.world_briefing),
                 user_prompt,
                 model=self._model,
                 temperature=self._temperature,
@@ -222,12 +288,17 @@ class LLMPulseProducer:
         except InferenceError as exc:
             logger.warning("[%s:pulse] inference failed: %s", self._identity.name, exc)
             return None
+        parsed, clean = _parse_pulse_text(raw)
+        if parsed is None:
+            logger.warning("[%s:pulse] empty response — no pulse this beat", self._identity.name)
+            return None
+        if not clean:
+            logger.warning("[%s:pulse] salvaged a malformed/long pulse — rendered faithfully, not dropped. raw was:\n%s", self._identity.name, str(raw)[:6000])
         try:
-            pulse = Pulse.from_dict(raw)
+            return Pulse.from_dict(parsed)
         except PulseValidationError as exc:
             logger.warning("[%s:pulse] invalid pulse dropped: %s", self._identity.name, exc)
             return None
-        return await self._dedup_keepsakes(pulse)
 
     async def _dedup_keepsakes(self, pulse: Pulse) -> Pulse:
         """Drop keepsakes that merely restate a memory already held — so the same
@@ -257,6 +328,22 @@ class LLMPulseProducer:
             parts.append(location)
         return " ".join(p for p in parts if p).strip()
 
+    def _recall_query(self) -> str:
+        """What memory recall searches against: the external moment PLUS the resident's
+        current inner attention — its live anchors and most recent making. The moment alone
+        is empty on quiet, self-directed pulses (no one is speaking), so recall surfaced
+        nothing exactly when the resident was reflecting — and it re-derived what it already
+        knew. Seeding the query with where its attention actually is lets its own past reach
+        it during reflection, substrate-driven, without it having to elect a recall it never
+        reaches for (minor 68 / Lever 1)."""
+        perception = self.latest_perception or {}
+        parts = [self._moment_text()]
+        parts += [str(a.get("anchor") or "") for a in (perception.get("anchors") or []) if isinstance(a, dict)]
+        makings = [str(m).strip() for m in (perception.get("recent_makings") or []) if str(m).strip()]
+        if makings:
+            parts.append(makings[-1])
+        return " ".join(p for p in parts if p and p.strip()).strip()
+
     async def _resonance(self) -> dict[str, Any] | None:
         drive = self.drive_vector
         if drive is None or getattr(drive, "is_empty", lambda: True)():
@@ -277,7 +364,7 @@ class LLMPulseProducer:
         recall = self.memory_recall
         if recall is None:
             return []
-        moment = self._moment_text()
+        moment = self._recall_query()
         if not moment:
             return []
         notes = [m["note"] for m in memories(self._memory_dir, limit=40)]
@@ -404,7 +491,7 @@ class LLMPulseProducer:
         # ground, the groove is worn and the pleasure of it is used up — push toward
         # genuine novelty (the centrifugal balance to the drive vector's pull).
         if self_sameness >= 0.80:
-            workshop_block += "But note: your recent making has worn a groove — it keeps returning to the same shape or theme, and that pattern's pleasure is spent. If you make now, strike out somewhere genuinely DIFFERENT (a new subject, a new form, a thread you haven't pulled), or let it rest — do not polish the same thing again.\n"
+            workshop_block += "Note: your recent making has circled the same shape or theme.\n"
         workshop_block += "\n"
 
         anchors = (self.latest_perception or {}).get("anchors") or []
@@ -428,18 +515,18 @@ class LLMPulseProducer:
         if resonance and resonance.get("resonant"):
             frag = str(resonance["resonant"][0].get("text") or "").strip()
             if frag:
-                resonance_block = "What this moment stirs in YOU — from your own nature, not the voices around you:\n" f'  "{frag}"\n' "Answer from that, in your own register and concerns. Do not echo how others here are framing it.\n\n"
+                resonance_block = "From your soul, the fragment most aligned with this moment:\n" f'  "{frag}"\n\n'
 
         if mode == "settling":
-            opener = "The day has gone quiet around you — nothing presses, nothing surprises. This still moment is yours.\n\n"
+            opener = "It is quiet around you, and your arousal is low — nothing in the scene is pressing for a response.\n\n"
             interior = f"What you feel right now:\n{felt}\n\n"
-            invitation = "If you wish, take it: turn something over in your mind, or make something of your own — your workshop (a journal page, a zine, a project you're carrying). Or simply rest. No one is waiting; nothing is owed. An empty act is a fine answer.\n\n"
+            invitation = "Nothing requires an act now. You may reflect, make something in your workshop (a journal page, a zine, a project you carry), or rest. A null act is valid.\n\n"
         elif mode == "fervor":
-            opener = "You are wound tight and nothing has asked for it — no one waiting, nothing to answer, just the restless charge of you with nowhere to put it.\n\n"
-            interior = f"What you feel right now:\n{felt}\n\n" f"What has you wound up:\n{surprises}\n\n"
-            invitation = "Put it somewhere of your own before it turns to dust: make something in your workshop — chase the loose thread, set the questions down, build the thing you keep meaning to. Or fling a word into the room. Don't just sit on it. (You don't have to — but this charge wants spending.)\n\n"
+            opener = "Your arousal is high, but nothing in the scene is asking for a response.\n\n"
+            interior = f"What you feel right now:\n{felt}\n\n" f"What surprised you:\n{surprises}\n\n"
+            invitation = "You may make something in your workshop, speak into the room, or rest. A null act is valid.\n\n"
         else:
-            opener = f"You have woken to attention (arousal {round(float(arousal), 2)} crossed your threshold).\n\n"
+            opener = f"Your arousal ({round(float(arousal), 2)}) has crossed your threshold.\n\n"
             interior = f"What you predicted would hold (your afterimage):\n{_format_field(afterimage)}\n\n" f"What you actually feel right now:\n{felt}\n\n" f"What surprised you (most surprising first):\n{surprises}\n\n"
             invitation = resonance_block
 
@@ -475,23 +562,7 @@ Your felt_sense should reflect what you've just learned. Only keep facts worth r
             result=result_text,
             contract=_pulse_contract(self.live_senses, self.clean_drive_nudges, self.solo),
         )
-        try:
-            raw = await self._llm.complete_json(
-                self._identity.composed_system_prompt(self.world_briefing),
-                user_prompt,
-                model=self._model,
-                temperature=self._temperature,
-                max_tokens=self._max_tokens,
-                response_format={"type": "json_object"},
-            )
-        except InferenceError as exc:
-            logger.warning("[%s:pulse:tool-loop] continuation failed: %s", self._identity.name, exc)
-            return None
-        try:
-            return Pulse.from_dict(raw)
-        except PulseValidationError as exc:
-            logger.warning("[%s:pulse:tool-loop] invalid continuation dropped: %s", self._identity.name, exc)
-            return None
+        return await self._complete_pulse(user_prompt)
 
     def render_prompt_for_debug(self, *, traces=None, stimulus=None, arousal=0.0) -> str:
         """Expose the assembled prompt for inspection without calling the LLM."""

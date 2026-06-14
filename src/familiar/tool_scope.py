@@ -32,7 +32,7 @@ import os
 import shutil
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -148,20 +148,43 @@ def _when(ts: Any) -> str:
         return str(ts or "")[:10]
 
 
+def _workshop_lines(memory_dir: Path) -> list[tuple[str, str, str]]:
+    """The familiar's own makings, line by line: ``(mtime_iso, "<file>:<lineno>", line)``. The workshop
+    lives beside ``memory/`` on disk and is the familiar's OWN — so recall reaches it, even though the
+    ``search`` tool (which is for the world's files, via FileScope) skips this gitignored runtime. Header
+    lines are dropped so a match lands on substance, not a heading."""
+    ws = Path(memory_dir).parent / "workshop"
+    if not ws.is_dir():
+        return []
+    out: list[tuple[str, str, str]] = []
+    for f in sorted(ws.glob("*.md")):
+        try:
+            ts = datetime.fromtimestamp(f.stat().st_mtime, tz=timezone.utc).isoformat()
+            for i, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+                s = line.strip()
+                if s and not s.startswith("#"):
+                    out.append((ts, f"{f.name}:{i}", s))
+        except OSError:
+            continue
+    return out
+
+
 def _recall(memory_dir: Path, query: str) -> str:
-    """Look back over the familiar's own kept memories and past felt-senses. Blank query → an
-    overview of the road so far (earliest, a middle, lately, and how it's been feeling); a word
-    or theme → the moments that match it, oldest to newest. Keyword match (semantic recall is a
-    later enhancement) — bounded and best-effort."""
-    kept = [k for k in _read_jsonl(memory_dir / "kept_memory.jsonl") if str(k.get("note") or "").strip()]
+    """Look INWARD — over the familiar's OWN past: its kept memories, its past felt-senses, and the
+    things it has MADE in its workshop. All of it is the familiar's own, not the world's files (that is
+    ``search``). Blank query → an overview of the road so far; a word or theme → the moments that match
+    it, oldest to newest. Keyword match (semantic recall is a later enhancement) — bounded, best-effort."""
+    md = Path(memory_dir)
+    kept = [k for k in _read_jsonl(md / "kept_memory.jsonl") if str(k.get("note") or "").strip()]
     feelings = [{"felt": str((e.get("payload") or {}).get("felt_sense") or ""), "ts": e.get("ts")}
-                for e in _read_jsonl(memory_dir / "runtime_ledger.jsonl") if e.get("event_type") == "felt_sense_logged"]
+                for e in _read_jsonl(md / "runtime_ledger.jsonl") if e.get("event_type") == "felt_sense_logged"]
     feelings = [f for f in feelings if f["felt"].strip()]
+    makings = _workshop_lines(md)
     q = (query or "").strip().lower()
 
     if not q:
-        if not kept and not feelings:
-            return "You haven't kept anything yet — your road is still just the step you're standing on."
+        if not kept and not feelings and not makings:
+            return "You haven't kept or made anything yet — your road is still just the step you're standing on."
         lines: list[str] = []
         if kept:
             lines.append(f"You've kept {len(kept)} memories, from {_when(kept[0].get('kept_ts'))} to {_when(kept[-1].get('kept_ts'))}.")
@@ -173,6 +196,9 @@ def _recall(memory_dir: Path, query: str) -> str:
                 lines.append(f"  • [{_when(mid.get('kept_ts'))}] {mid['note']}")
             lines.append("Lately:")
             lines += [f"  • [{_when(k.get('kept_ts'))}] {k['note']}" for k in kept[-3:]]
+        if makings:
+            files = sorted({w[1].split(":")[0] for w in makings})
+            lines.append(f"In your workshop you have been making: {', '.join(files)} (use recall with a word to look inside them).")
         if feelings:
             lines.append(f"How you've been feeling, most recently:\n  “{feelings[-1]['felt']}”")
         return "\n".join(lines)
@@ -184,11 +210,14 @@ def _recall(memory_dir: Path, query: str) -> str:
     for f in feelings:
         if q in f["felt"].lower():
             hits.append((str(f.get("ts") or ""), "felt", f["felt"]))
+    for ts, where, text in makings:
+        if q in text.lower():
+            hits.append((ts, "made", f"{where} — {text}"))
     if not hits:
-        return f"Nothing you've kept speaks to “{query}” — maybe it never settled into memory, or you'd name it differently now."
+        return f"Nothing you've kept, felt, or made speaks to “{query}” — maybe it never settled, or you'd name it differently now."
     hits.sort(key=lambda h: h[0])
     out = [f"Looking back for “{query}” — {len(hits)} moment(s):"]
-    out += [f"  • [{_when(ts)}] {'(a feeling) ' if kind == 'felt' else ''}{text}" for ts, kind, text in hits[-12:]]
+    out += [f"  • [{_when(ts)}] {'(a feeling) ' if kind == 'felt' else '(a making) ' if kind == 'made' else ''}{text}" for ts, kind, text in hits[-12:]]
     return "\n".join(out)
 
 
@@ -196,7 +225,7 @@ def _make_recall(memory_dir: Any) -> Tool:
     md = Path(memory_dir)
     return Tool(
         name="recall",
-        description='look back over your own kept memories and past feelings — act do: "use recall <a word or theme, or leave it blank for an overview of your road so far>"',
+        description='look INWARD — over your OWN past: your kept memories, your past feelings, and the things you have made in your workshop (all yours; this is NOT the world\'s files) — act do: "use recall <a word or theme, or leave it blank for an overview of your road so far>"',
         call=lambda q: _recall(md, q),
         egress=False,
     )
@@ -267,7 +296,7 @@ def _search(file_scope: Any, query: str, *, max_files: int = 600, max_hits: int 
 def _make_search(file_scope: Any) -> Tool:
     return Tool(
         name="search",
-        description='search the text of the files in your reach for a word or phrase — act do: "use search <what to look for>"',
+        description='look OUTWARD — search the text of the files in the world you can reach (the keeper\'s work and the repos; NOT your own memory or makings — those are `recall`) — act do: "use search <what to look for>"',
         call=lambda q: _search(file_scope, q),
         egress=False,
     )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import datetime, timedelta, timezone
 
 from src.identity.loader import LoopTuning, ResidentIdentity
@@ -10,7 +11,7 @@ from src.runtime.effectors import WorldEffector
 from src.runtime.ledger import derive_packets, load_runtime_events
 from src.runtime.perception import perceive
 from src.runtime.pulse import Act
-from src.runtime.pulse_engine import LLMPulseProducer
+from src.runtime.pulse_engine import LLMPulseProducer, _parse_pulse_text
 from src.runtime.salience import stimulus_from_substrate
 
 T0 = datetime(2026, 6, 2, 12, 0, 0, tzinfo=timezone.utc)
@@ -127,6 +128,12 @@ class _StubLLM:
         self.json_response = json_response
         self.raise_inference = raise_inference
         self.calls: list[dict] = []
+
+    async def complete(self, system_prompt, user_prompt, **kwargs):
+        self.calls.append({"system": system_prompt, "user": user_prompt, **kwargs})
+        if self.raise_inference:
+            raise InferenceError("boom")
+        return json.dumps(self.json_response or {})
 
     async def complete_json(self, system_prompt, user_prompt, **kwargs):
         self.calls.append({"system": system_prompt, "user": user_prompt, **kwargs})
@@ -309,8 +316,54 @@ def test_pulse_prompt_surfaces_drive_resonance(tmp_path):
 
     asyncio.run(producer(traces=[], stimulus={}, arousal=1.2))
     prompt = llm.calls[0]["user"]
-    assert "stirs in YOU" in prompt  # the resonance block is present
+    assert "fragment most aligned" in prompt  # the resonance block is present (Major 71: states the fact, no "answer from your nature" directive)
     assert "engine" in prompt.lower()  # and it surfaced the mechanic's own fragment
+
+
+def test_recall_query_carries_inner_attention_when_unspoken(tmp_path):
+    # On a quiet, self-directed pulse there is no heard message — the bare moment is empty. The recall
+    # query must still carry the resident's inner attention (its live anchors + last making), so its own
+    # past can reach it during reflection instead of going dark (Major 71 / Lever 1).
+    producer = LLMPulseProducer(llm=_StubLLM(), identity=_identity(), memory_dir=tmp_path)
+    producer.latest_perception = {
+        "heard": [],
+        "recent_events": [],
+        "location": "",
+        "anchors": [{"anchor": "the cliff", "salience": 0.9}, {"anchor": "form is content", "salience": 0.6}],
+        "recent_makings": ["On the cliff: curiosity drops to zero, instant, every time"],
+    }
+    assert producer._moment_text() == ""  # nothing external to seed recall
+    q = producer._recall_query()
+    assert "the cliff" in q and "form is content" in q  # inner attention (anchors)
+    assert "curiosity drops to zero" in q  # and the most recent making
+
+
+# --- the inflating net: render the pulse faithfully, never cut off / silently dropped --------
+
+
+def test_inflating_net_parses_clean_json():
+    obj, clean = _parse_pulse_text(json.dumps({"felt_sense": "calm", "act": None}))
+    assert clean is True and obj["felt_sense"] == "calm"
+
+
+def test_inflating_net_salvages_a_truncated_pulse():
+    # A long reflection cut off mid-body — what the 700-token cap used to do: felt_sense whole, the
+    # write's body truncated with no closing quote. The net keeps both instead of dropping the pulse.
+    truncated = '{"felt_sense": "the cliff again", "act": {"kind": "write", "body": "## On the cliff\\n\\nIt drops to zero every'
+    obj, clean = _parse_pulse_text(truncated)
+    assert clean is False
+    assert obj["felt_sense"] == "the cliff again"
+    assert obj["act"]["kind"] == "write" and "drops to zero" in obj["act"]["body"]
+
+
+def test_inflating_net_never_drops_nonempty_output():
+    # Even unparseable output is rendered as the felt readout — the words are never silently lost.
+    obj, clean = _parse_pulse_text("no json at all, just what I wanted to say")
+    assert clean is False and "what I wanted to say" in obj["felt_sense"]
+
+
+def test_inflating_net_drops_only_a_truly_empty_response():
+    assert _parse_pulse_text("   ")[0] is None
 
 
 def test_pulse_engine_fails_closed_on_inference_error(tmp_path):

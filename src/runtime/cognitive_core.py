@@ -33,6 +33,7 @@ from src.runtime.memory import MemoryRecall
 from src.runtime.perception import perceive
 from src.runtime.prediction import tag_mattering
 from src.runtime.pulse_engine import LLMPulseProducer
+from src.runtime.retrieval import cast_retrieval_afterimage
 from src.runtime.salience import SELF_SENSES
 from src.runtime.substrate import predict
 from src.runtime.workshop import Workshop
@@ -111,6 +112,9 @@ class CognitiveCore:
         # Drive vector (Phase 4): built lazily on the first tick from the embedder.
         self._embedder = embedder if embedder is not None else _embedder_from_env()
         self._drive_built = False
+        # Persistent embedding cache for the live retrieval predictor (minor 67), so it
+        # doesn't re-embed the whole anchor history on every snapshot. Keyed by snapshot text.
+        self._anchor_embed_cache: dict[str, list[float]] = {}
 
         # Capability scoping (Major 50): a world declares the self-senses it cannot
         # feed (a mail-less LocalWorld → correspondence_pull). The real WorldWeaver
@@ -230,7 +234,17 @@ class CognitiveCore:
             structured += [str(h.get("speaker") or "") for h in (brief.get("heard") or [])]
             anchors = extract_anchors(prose, structured=structured, top_k=8)
             brief["anchors"] = anchors
-            record_anchors(self._memory_dir, anchors, now=now, events=events)
+            wrote_snapshot = record_anchors(self._memory_dir, anchors, now=now, events=events)
+            # Rung 3, first stone (minor 67): when a fresh realized anchor snapshot lands, cast a
+            # retrieval-derived prediction of the NEXT anchor set from this resident's own past —
+            # experience-prediction over the things it cares about. Scored offline
+            # (prediction.derive_anchor_scores) and held in the scored-but-quiet anchor lane, so it
+            # never drives arousal and has no dark-room dynamics. Best-effort; never breaks the tick.
+            if wrote_snapshot and self._embedder is not None:
+                try:
+                    await cast_retrieval_afterimage(self._embedder, self._memory_dir, now=now, cache=self._anchor_embed_cache)
+                except Exception as exc:
+                    logger.debug("[%s] retrieval afterimage cast failed: %s", self.name, exc)
             self._producer.latest_perception = brief
             # Sight: the images in view (the most-recent visual read), pulled off the world by its
             # duck-typed surface. A WorldClient without it (the city shard) simply offers none.
