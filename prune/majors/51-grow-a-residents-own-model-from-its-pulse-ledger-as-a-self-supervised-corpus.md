@@ -118,7 +118,7 @@ It **cannot dark-room**, because a preference prior encodes what is *wanted*, no
 - `ww_agent/src/runtime/ledger.py` — read-only export helpers if needed (no new source of truth)
 - `ww_agent/familiar/*/familiar.json` — optional `mind: trained|cloud` selector per familiar
 - `ww_agent/tests/` — corpus-export determinism; trained-pulse schema/constitution-gate validity; Rung-3 collapse detectors
-- Docs: `improvements/VISION.md` / `ROADMAP.md` thread (local-first / commons mind)
+- Docs: `prune/VISION.md` / `ROADMAP.md` thread (local-first / commons mind)
 
 ## Acceptance Criteria
 

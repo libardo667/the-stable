@@ -112,7 +112,7 @@ Phased; each phase is independently valuable and separately gateable.
   any spend, per house method)
 - `research/analysis/` re-excitability + sampling-entropy measures (reuse
   `maturation_stability.py` profile distance where applicable)
-- `improvements/majors/64-...md`, `66-...md` (one-line cross-references when phases activate)
+- `prune/majors/64-...md`, `66-...md` (one-line cross-references when phases activate)
 - `docs/grief-and-coupling.md` — **unchanged**; it is the gate this major is read against
 
 ## Acceptance Criteria

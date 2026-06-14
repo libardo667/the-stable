@@ -1,4 +1,8 @@
-# improvements/ — the work-item ledger (the-stable)
+# prune/ — the work-item ledger (the-stable)
+
+> This directory is an **instance of [prune](https://github.com/libardo667/prune)** — the reusable
+> work-item kit, adopted. The `harness/` is prune's, kept in sync; the `majors/` and `minors/` are
+> the-stable's own work. Same shape as the kit's root, populated.
 
 This is the project's **work-item harness**: where an intended change is written down *before* it is
 built, reviewed against a rubric frozen ahead of the work, and archived once it ships. `majors/` hold

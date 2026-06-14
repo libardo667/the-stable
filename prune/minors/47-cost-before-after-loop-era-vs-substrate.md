@@ -25,7 +25,7 @@ A small, reproducible analysis script over the OpenRouter exports that produces:
 ## Files Affected
 
 - `ww_agent/scripts/cost_curve.py` (extend the existing cost tooling, or a sibling analysis script)
-- a generated chart artifact (PNG/SVG) under a documented path (feeds `improvements/`)
+- a generated chart artifact (PNG/SVG) under a documented path (feeds `prune/`)
 
 ## Acceptance Criteria
 

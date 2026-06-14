@@ -106,7 +106,7 @@ monthly note — the "builds the finances instead of draining them" claim, measu
 - `research/harness/teacher_forced_replay.py` — **unchanged** (the point); SWAP-D is a CLI arg
 - `scripts/familiar.py` / `familiar/maker/familiar.json` — per-familiar local-pen selection
   (likely already sufficient via `model` + `WW_INFERENCE_URL`; verify before touching)
-- `improvements/personal` → spend ledger / monthly note — the training-cost entry
+- `prune/personal` → spend ledger / monthly note — the training-cost entry
 
 ## Acceptance Criteria
 

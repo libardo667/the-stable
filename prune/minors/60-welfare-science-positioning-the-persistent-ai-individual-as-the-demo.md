@@ -41,7 +41,7 @@ One bounded artifact pass, no new experiments:
 
 - `research/writeups/welfare-of-a-persistent-individual-DRAFT.md` (new)
 - `docs/cold-visitor-walkthrough.md` (new)
-- `improvements/` lanes notes (private cross-ref)
+- `prune/` lanes notes (private cross-ref)
 
 ## Acceptance Criteria
 

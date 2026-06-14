@@ -13,8 +13,8 @@ Copy this `improvements/harness/` folder into the target repo.
 
 Recommended destination:
 
-- `improvements/harness/` for planning-first repos.
-- `docs/agentic-harness/` for docs-first repos.
+- a `prune/` folder (this kit's own name, so the instance is self-declaring) for planning-first repos.
+- `improvements/` if you prefer the generic name; `docs/agentic-harness/` for docs-first repos.
 
 ## Step 2: Establish project anchors
 
@@ -93,3 +93,4 @@ Adopt the loop:
 - [ ] Canonical run/test/build commands documented.
 - [ ] Merge quality gates enabled in CI.
 - [ ] First week of work tracked through harness item taxonomy.
+- [ ] Instance README declares itself a prune instance (link back to the kit).

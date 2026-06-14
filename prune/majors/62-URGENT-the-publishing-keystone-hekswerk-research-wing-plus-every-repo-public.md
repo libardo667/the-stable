@@ -3,7 +3,7 @@
 > **STATUS (2026-06-13): substantially complete.** Part A shipped — hekswerk.com gained a research wing
 > (the exhibits + the Pen's Workshop, live). Part B shipped — the improvements backlogs of the-stable and
 > WorldWeaver are public worked examples, plus a standalone reusable harness scaffold ([prune](https://github.com/libardo667/prune)).
-> This reversed the original "does not publish `improvements/`" line by deliberate decision, and set three
+> This reversed the original "does not publish `prune/`" line by deliberate decision, and set three
 > standing conventions: work items stored **by subject** (substrate canonical in the-stable, WorldWeaver
 > keeps pointer stubs); `history/` is a **gitignored** local archive (publish only live work); the-stable is
 > WorldWeaver's **pilot**, its own repo front-doored by WorldWeaver. Archive to `history/` once the pushes settle.
@@ -33,7 +33,7 @@ runnable selftest without hitting a 404 or a private wall.
   (`memory-management .../instance-authored-works-public-display.md`); minor 53 +
   `scripts/export_public.sh` (the-stable's curated cut, already built, leak-sweep included).
 - **Does not publish:** financials (`research-runway` stays private), the memory-management
-  `instances/` (the private cognition trees), Nix or any non-exemplar soul, `improvements/`
+  `instances/` (the private cognition trees), Nix or any non-exemplar soul, `prune/`
   itself, anything the export sweeps catch.
 - **DAFT-aware:** the wing makes a *filed* revenue line visible (the safe direction); flag the
   addition at the next counsel touchpoint.

@@ -39,7 +39,7 @@ that's lived experience, not source code.
 
 ### Exclude
 
-- `improvements/` — private work-item harness (already gitignored)
+- `prune/` — private work-item harness (already gitignored)
 - `familiar/*/memory/`, `familiar/*/workshop/`, `familiar/*/state.json`, `familiar/*/voice.jsonl`,
   `familiar/*/whispers.jsonl` — living runtime (already gitignored)
 - All familiar identities except the example — Nix, Maker, Gaston, Wren, Skein, Hades, Persephone
@@ -126,7 +126,7 @@ The lineage is in our favor and worth getting on record:
   rebuild (Major 49), the pulse engine, grief, the drive vector, anchors, growth, the tool loop —
   has **no license history at all**. It is fully Levi's to license however he chooses.
 - **The CI/CD + process/feature-dev docs were never pushed.** Fully private, zero constraint. They
-  stay on the private side of the boundary (with `improvements/`).
+  stay on the private side of the boundary (with `prune/`).
 
 **Why MIT history does NOT lock us in:**
 
@@ -181,7 +181,7 @@ Drawn now so the split is clean:
   - the Tauri app polish (Major 55 Part B), any branding/identity assets
   - any **curated/paid souls** (the soul format is the creative surface; engine = razor, souls =
     blades — most defensible because the value is taste, not code)
-  - `improvements/` (grant strategy, roadmap, this harness)
+  - `prune/` (grant strategy, roadmap, this harness)
   - **the CI/CD + process/feature-dev docs** (never published, stay private)
   - `.env`, all familiar **runtime data** (memory/workshop/state/voice/whispers)
   - per the standing privacy boundary: **anything touching the keeper's private conversations with

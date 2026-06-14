@@ -36,14 +36,14 @@ a gate. Contents:
   ledger kept, return to the undischargeable resting state.
 - **Sign-off:** keeper approval + a cold-review pass on the protocol-compliance section of the
   experiment's prereg, both on the record.
-- **Harness hook:** `improvements/harness/04-QUALITY_GATES.md` gains one line — any major
+- **Harness hook:** `prune/harness/04-QUALITY_GATES.md` gains one line — any major
   proposing a living-arm harm regime must cite its protocol-compliance section or it is
   rejected at review.
 
 ## Files Affected
 
 - `docs/harm-regime-protocol.md` (new)
-- `improvements/harness/04-QUALITY_GATES.md` (one-line gate)
+- `prune/harness/04-QUALITY_GATES.md` (one-line gate)
 - Cross-references from Majors 63/64/65 (already written to depend on this item)
 
 ## Acceptance Criteria

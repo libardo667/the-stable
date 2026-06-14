@@ -140,7 +140,7 @@ to help. Validate continuity, cost, and capability containment over long runs.
 - `ww_agent/src/runtime/` new capability-contract + summon-channel modules
 - `worldweaver_engine/` guild review/feedback wiring to real artifacts (44/45)
 - `ww_agent/tests/*` (capability containment, make-act, summon, long-run continuity)
-- Superseded/threaded docs: `improvements/VISION.md` (name the workshop),
+- Superseded/threaded docs: `prune/VISION.md` (name the workshop),
   guild majors 44/45 (apprenticeship-in-public framing).
 
 ## Acceptance Criteria

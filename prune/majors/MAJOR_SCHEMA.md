@@ -3,7 +3,7 @@
 Each `.md` file in this folder describes a single **major** improvement — a change
 that touches multiple files, introduces new subsystems, or significantly alters
 existing behaviour. Major fixes are the kind of work that moves the project from
-"backend prototype" to "playable vertical slice."
+a rough prototype to a working, releasable slice.
 
 ---
 
@@ -65,7 +65,7 @@ Inventory, relationships, and environment are lost on server restart.
 ## Files Affected
 - src/database.py
 - src/models/__init__.py
-- src/api/game.py
+- src/api/handlers.py
 
 ## Acceptance Criteria
 - [ ] Inventory survives server restart

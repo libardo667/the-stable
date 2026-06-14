@@ -27,7 +27,7 @@ quiet ember").
 
 ## Files Affected
 - `familiar/portrait/` (web) as the prototype surface; the Tauri shell when Major 52 builds
-- `improvements/TALKING_POINTS.md` / Major 62 site copy — the continuity-sovereignty line
+- `prune/TALKING_POINTS.md` / Major 62 site copy — the continuity-sovereignty line
 
 ## Acceptance Criteria
 - [ ] A first-run user reaches one UNBIDDEN act while still watching (instrument the time-to-

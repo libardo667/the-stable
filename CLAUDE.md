@@ -48,7 +48,7 @@ scripts/familiar.py    run one familiar ; scripts/field_guide.py    deep interna
 familiar/<name>/  a familiar: identity/ (SOUL — tracked) + living memory/workshop/state (gitignored)
 familiar/portrait/  the desktop/browser portrait UI (serve.py, ui/, src-tauri/)
 familiar/wake-all.sh    wake the whole stable + portrait at http://localhost:8777
-improvements/     the work-item harness (majors/, minors/, harness/ policy, schemas)
+prune/            the work-item harness (an instance of the prune kit: majors/, minors/, harness/ policy, schemas)
 docs/             design notes (grief-and-coupling.md = the dischargeability invariant)
 ```
 
@@ -93,6 +93,6 @@ Deps are just `httpx` + `pathspec` (see `pyproject.toml`). Local embedder = Olla
 
 ## Workflow
 
-`improvements/` is the work-item harness (majors = large, minors = bounded). Before non-trivial work:
+`prune/` is the work-item harness, an instance of the **prune** kit (majors = large, minors = bounded). Before non-trivial work:
 declare the authoritative path, scope, and validation commands; keep diffs bounded to declared scope;
 extend existing paths rather than forking parallel ones. The cognitive arc lives in majors 49–53.
