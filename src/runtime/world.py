@@ -44,6 +44,7 @@ class WorldClient(Protocol):
     #   writes_only_workshop: bool — its sole write capability is its own workshop (a hearth fact)
     #   mobile:      bool — it can move through the world (a city affordance)
     #   mail:        bool — it can send word that waits for an absent recipient (a city affordance)
+    #   travel:      str  — where it can travel between worlds (hearth ↔ city) and the phrase to use
     #   egress:      bool — anything it does can leave the machine (a tool marked so)
     #   recorded:    bool — its words/acts are written where they can be read back
     #   no_reward:   bool — the substrate holds no reward/goal for it (the Dwarf Fortress law)

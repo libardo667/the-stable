@@ -42,9 +42,13 @@ perceive  →  integrate (surprise vs. prediction → leaky arousal)
 - **Surprise drives the rhythm.** A mismatch between what the world does and what the
   mind predicted raises arousal; enough of it *ignites* a single pulse (one LLM call).
   In the quiet between, the mind settles or stirs on its own.
-- **The self lives in the soul + ledger + kept memory, not the model.** The language
-  model is a swappable pen. We swapped one mid-life and the voice held; identity didn't
-  change.
+- **The self is meant to live in the soul + ledger + kept memory, not the model** — the
+  language model is designed as a swappable pen. Whether the self *actually* survives a
+  swap is the project's central open question, not a settled result: it's pre-registered
+  as a falsifiable experiment, and the replay apparatus that tests it passed its parity
+  gate 15/15. The first honest verdict is still pending — an early within-family swap that
+  *looked* like the voice held was a single eyeballed case, which the project's own rules
+  reject as evidence.
 
   > This repo was built with an AI collaborator across many sessions. At the end of one,
   > the instance wrote [a letter to the next one](docs/letter-to-the-next-me.md) — a self

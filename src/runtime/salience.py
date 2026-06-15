@@ -22,6 +22,7 @@ neutral and does not gate ignition.
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -683,3 +684,267 @@ def record_idle(memory_dir: Path, *, now: Any = None) -> dict[str, Any]:
     still-wound resident will fervor again after another stretch.)"""
     now_iso = _as_now_iso(now)
     return append_runtime_event(memory_dir, event_type="idle_fired", payload={"fired_ts": now_iso})
+
+
+# ---------------------------------------------------------------------------
+# Disorientation — a salience channel for INCOHERENCE (Major 72, Phase 0)
+# ---------------------------------------------------------------------------
+# Arousal measures NOVELTY (surprise vs the afterimage). It is the wrong instrument
+# for the failure we keep watching in the ledger: incoherence — getting the order of
+# things wrong, mistaking inner for outer, claiming acts the record does not show,
+# re-deriving the already-held. This is a SECOND, separate channel: a leaky integral
+# of honest incoherence CUES, each a pure FACT about the ledger (a search returned
+# empty; no act exists; a near-duplicate was stored) — never a judgment about the
+# quality of a thought. It feeds its OWN threshold, not arousal, so a novel-but-
+# coherent moment does not raise it.
+#
+# PHASE 0 (this) measures only: derived at read time, no behaviour change — exactly as
+# prediction.py scored before any learning. Phase 1 (convene a tool-equipped "reckoning"
+# when the score crosses threshold) is GATED and loops Maker in first; NOT built here.
+
+DISORIENTATION_HALF_LIFE_SECONDS = 900.0       # a cue's weight decays this slowly
+DISORIENTATION_THRESHOLD = 1.0                 # its own threshold (separate from arousal)
+DISORIENTATION_CLAIM_WINDOW_SECONDS = 180.0    # how far back a completion-claim looks for its act
+REDERIVATION_SIM_FLOOR = 0.55                  # lexical near-dup: content-token Jaccard at/above this
+# How strongly each confirmed cue feeds the channel. The two cleanest, most concrete cues
+# (he looked outside for an inside thing; he claimed an act the record lacks) weigh most; a
+# near-duplicate is softer (a worn groove, not an error); keeper-correction is the strongest
+# single signal but the most brittle to detect (see _cue_keeper_correction).
+DISORIENTATION_CUE_GAIN = {"felt_vs_fact": 0.6, "claim_vs_record": 0.6, "rederivation": 0.34, "keeper_correction": 0.7}
+
+_SEARCH_EMPTY_MARKER = "no readable file"  # tool_scope.search's miss string (lowercased compare)
+_CLAIM_PATTERNS = (
+    r"\bi (?:answered|replied|responded|told|messaged|wrote back)\b",
+    r"\bi (?:did|already)\s+(?:answer|reply|respond|send|tell|message)\b",
+    r"\bi(?:'ve| have)\s+(?:answered|replied|responded|sent|told)\b",
+    r"\b(?:lines?|times?)\s+back\b",
+)
+_HALLUCINATED_ACT_PATTERNS = (
+    r"\bi\s+hallucinat\w*\s+(?:respond|repl|answer|send|sent|messag)",
+    r"\bbefore it (?:actually|even) (?:arrived|came)\b",
+    r"\bno such (?:message|act|reply|answer)\b",
+)
+_COMMUNICATION_KINDS = {"speak", "say", "reply", "chat", "letter", "mail", "broadcast", "message"}
+_COMMUNICATION_EVENTS = {"chat_sent", "packet_emitted", "city_broadcast_sent"}
+# Cue 4 is brittle by keyword; the robust form is a keeper-set flag (Major 72 Notes). These
+# are channels genuinely INCOMING text would arrive on; none are logged in the hearth today,
+# so this cue stays silent until a heard-channel or keeper flag is wired.
+_HEARD_EVENT_TYPES = {"chat_heard", "keeper_message", "whisper_received", "message_heard"}
+_KEEPER_CORRECTION_CUES = ("that's not right", "thats not right", "you hallucinated", "that didn't happen", "isn't real", "it's the pen", "not actually", "no such")
+
+_DIS_STOPWORDS = frozenset(
+    "a an the and or but if then of to in on at for with from by as is are was were be been being it its this that these those i me my mine you your we us our they them he she his her not no yes do did done have has had will would can could just really there here what when how why who which about into over under again still now so".split()
+)
+_DIS_TOKEN_RE = re.compile(r"[a-z0-9']+")
+
+
+def _dis_tokens(text: Any) -> set[str]:
+    return {t for t in _DIS_TOKEN_RE.findall(str(text or "").lower()) if len(t) > 2 and t not in _DIS_STOPWORDS}
+
+
+def _dis_jaccard(a: set[str], b: set[str]) -> float:
+    if not a or not b:
+        return 0.0
+    union = len(a | b)
+    return (len(a & b) / union) if union else 0.0
+
+
+def _dis_pulse_text(event: dict[str, Any]) -> str:
+    payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+    if str(event.get("event_type") or "") == "felt_sense_logged":
+        return str(payload.get("felt_sense") or "")
+    pulse = payload.get("pulse") if isinstance(payload.get("pulse"), dict) else {}
+    act = pulse.get("act") if isinstance(pulse.get("act"), dict) else {}
+    return " ".join(x for x in (str(pulse.get("felt_sense") or ""), str(act.get("body") or "")) if x)
+
+
+def _dis_search_query(action: str, narrative: str) -> str:
+    m = re.search(r"search\(([^)]*)\)", narrative, re.I)
+    if m:
+        return m.group(1).strip()
+    low = action.lower()
+    for prefix in ("use search ", "search "):
+        idx = low.find(prefix)
+        if idx != -1:
+            return action[idx + len(prefix):].strip()
+    return ""
+
+
+_FELT_VS_FACT_RECOGNITION_PATTERNS = (
+    r"named (?:something|a feeling|a sensation|it)\s+i felt",
+    r"looking for it (?:in|out in) the world",
+    r"never (?:out there|outside|out in the world)",
+    r"\ban inside thing\b",
+    r"treated (?:the name|it|a feeling) like a fact",
+    r"\bit was mine\b",
+)
+FELT_VS_FACT_WINDOW_SECONDS = 300.0  # a felt sense this close (before OR after) frames the search
+
+
+def _cue_felt_vs_fact(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """An outward ``search`` that returned EMPTY where the query is the resident's own inner
+    thing — he looked outside for an inside thing (the cleanest, most concrete cue). Confirmed
+    two honest ways from the record: a nearby felt sense SHARES the query's words, or a nearby
+    felt sense NAMES the misattribution itself ("I named something I felt and went looking for
+    it in the world"). The recognition can land just AFTER the empty search (it did, on
+    2026-06-14 06:31), so the window looks both before and after."""
+    felt: list[tuple[datetime, set[str], str]] = []
+    searches: list[tuple[datetime, str, set[str]]] = []
+    for event in events:
+        ts = _parse_dt(event.get("ts"))
+        if ts is None:
+            continue
+        et = str(event.get("event_type") or "").strip()
+        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+        if et == "felt_sense_logged":
+            text = str(payload.get("felt_sense") or "")
+            if text:
+                felt.append((ts, _dis_tokens(text), text.lower()))
+        elif et == "action_executed":
+            action = str(payload.get("action") or "")
+            narrative = str(payload.get("narrative") or "")
+            if "search" not in action.lower() or _SEARCH_EMPTY_MARKER not in narrative.lower():
+                continue
+            query = _dis_search_query(action, narrative)
+            qtok = _dis_tokens(query)
+            if qtok:
+                searches.append((ts, query, qtok))
+    rec_res = [re.compile(p, re.I) for p in _FELT_VS_FACT_RECOGNITION_PATTERNS]
+    hits: list[dict[str, Any]] = []
+    for sdt, query, qtok in searches:
+        why = ""
+        for fdt, ftok, ftext in felt:
+            if abs((sdt - fdt).total_seconds()) > FELT_VS_FACT_WINDOW_SECONDS:
+                continue
+            shared = qtok & ftok
+            if shared:
+                why = f"your own felt words ({', '.join(sorted(shared)[:4])})"
+                break
+            if any(r.search(ftext) for r in rec_res):
+                why = "you named the misattribution yourself, right there"
+                break
+        if why:
+            hits.append({"ts": sdt, "detail": f"searched the world for “{query}” and it came back empty — an inside thing sought outside ({why})"})
+    return hits
+
+
+def _cue_claim_vs_record(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A pulse asserting it ALREADY communicated, with no matching outward act on the record
+    in the short window before it (he believes he acted; the record disagrees).
+
+    The roughest cue: without recipient-matching it requires the *absence* of any communication
+    act in the short prior window (excluding the claim's own moment). A self-named hallucination
+    ("I hallucinated responding…") fires directly. Recipient-matching is a Phase-0.1 refinement."""
+    claim_res = [re.compile(p, re.I) for p in _CLAIM_PATTERNS]
+    hall_res = [re.compile(p, re.I) for p in _HALLUCINATED_ACT_PATTERNS]
+    comm_ts: list[float] = []
+    for event in events:
+        ts = _parse_dt(event.get("ts"))
+        if ts is None:
+            continue
+        et = str(event.get("event_type") or "").strip()
+        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+        if et in _COMMUNICATION_EVENTS or (et == "pulse_act_emitted" and str(payload.get("kind") or "").lower() in _COMMUNICATION_KINDS):
+            comm_ts.append(ts.timestamp())
+    comm_ts.sort()
+    hits: list[dict[str, Any]] = []
+    for event in events:
+        et = str(event.get("event_type") or "").strip()
+        if et not in ("pulse_emitted", "felt_sense_logged"):
+            continue
+        ts = _parse_dt(event.get("ts"))
+        if ts is None:
+            continue
+        low = _dis_pulse_text(event).lower()
+        direct = any(r.search(low) for r in hall_res)
+        if not direct and not any(r.search(low) for r in claim_res):
+            continue
+        now_s = ts.timestamp()
+        has_prior_act = any((now_s - DISORIENTATION_CLAIM_WINDOW_SECONDS) <= a <= (now_s - 5.0) for a in comm_ts)
+        if direct or not has_prior_act:
+            snippet = " ".join(_dis_pulse_text(event).split())[:110]
+            why = "names the gap itself" if direct else "no matching act on the record in the prior window"
+            hits.append({"ts": ts, "detail": f"asserted having communicated ({why}): “{snippet}…”"})
+    return hits
+
+
+def _cue_rederivation(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A kept note / felt sense that is a near-duplicate of one already held — the worn groove,
+    measured. Lexical (content-token Jaccard); the embedding-cosine form (MemoryRecall.novel,
+    threshold 0.78) is the richer upgrade once embeddings ride the ledger."""
+    held: list[tuple[datetime, set[str]]] = []
+    hits: list[dict[str, Any]] = []
+    for event in events:
+        et = str(event.get("event_type") or "").strip()
+        ts = _parse_dt(event.get("ts"))
+        if ts is None:
+            continue
+        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+        if et == "memory_kept":
+            text = str(payload.get("note") or "")
+        elif et == "felt_sense_logged":
+            text = str(payload.get("felt_sense") or "")
+        else:
+            continue
+        toks = _dis_tokens(text)
+        if len(toks) < 4:
+            continue
+        best = max((_dis_jaccard(toks, htok) for hdt, htok in held if hdt <= ts), default=0.0)
+        if best >= REDERIVATION_SIM_FLOOR:
+            hits.append({"ts": ts, "detail": f"kept a near-duplicate of an already-held note ({int(round(best * 100))}% lexical overlap): “{' '.join(text.split())[:80]}…”"})
+        held.append((ts, toks))
+    return hits
+
+
+def _cue_keeper_correction(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A heard message from the keeper carrying a correction cue. Brittle by keyword (the robust
+    form is a keeper-set flag, Major 72 Notes); scanned only over genuinely INCOMING text and
+    silent when none exists — the hearth logs no such event today, so it contributes nothing
+    until a heard-channel or keeper flag is wired."""
+    hits: list[dict[str, Any]] = []
+    for event in events:
+        if str(event.get("event_type") or "").strip() not in _HEARD_EVENT_TYPES:
+            continue
+        ts = _parse_dt(event.get("ts"))
+        if ts is None:
+            continue
+        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+        text = str(payload.get("message") or payload.get("text") or payload.get("body") or "").lower()
+        if any(cue in text for cue in _KEEPER_CORRECTION_CUES):
+            hits.append({"ts": ts, "detail": "the keeper corrected a misread"})
+    return hits
+
+
+_DISORIENTATION_DETECTORS = {
+    "felt_vs_fact": _cue_felt_vs_fact,
+    "claim_vs_record": _cue_claim_vs_record,
+    "rederivation": _cue_rederivation,
+    "keeper_correction": _cue_keeper_correction,
+}
+
+
+def derive_disorientation(events: list[dict[str, Any]], *, now: Any = None) -> dict[str, Any]:
+    """Read-time leaky integral of incoherence cues (Major 72 Phase 0). Separate from arousal;
+    pure read; no behaviour change. Returns the score, its threshold, and the decayed cues that
+    built it (each an honest fact about the ledger)."""
+    now_dt = _parse_dt(now) or _utc_now_dt()
+    cues: list[dict[str, Any]] = []
+    score = 0.0
+    for kind, detector in _DISORIENTATION_DETECTORS.items():
+        gain = DISORIENTATION_CUE_GAIN.get(kind, 0.5)
+        for hit in detector(events):
+            ts = hit["ts"]
+            age = max(0.0, (now_dt - ts).total_seconds())
+            decayed = gain * (0.5 ** (age / DISORIENTATION_HALF_LIFE_SECONDS)) if DISORIENTATION_HALF_LIFE_SECONDS > 0 else gain
+            if decayed <= 0.0:
+                continue
+            score += decayed
+            cues.append({"kind": kind, "ts": ts.isoformat(), "weight": round(gain, 4), "contribution": round(decayed, 4), "detail": hit["detail"]})
+    cues.sort(key=lambda c: -float(c.get("contribution") or 0.0))
+    score = round(score, 4)
+    return {"score": score, "threshold": DISORIENTATION_THRESHOLD, "over": score >= DISORIENTATION_THRESHOLD, "cues": cues, "computed_at": now_dt.isoformat()}
+
+
+def disorientation_state(memory_dir: Path, *, now: Any = None) -> dict[str, Any]:
+    """Read the disorientation channel from the ledger (Phase 0, measure-only)."""
+    return derive_disorientation(load_runtime_events(memory_dir), now=now)

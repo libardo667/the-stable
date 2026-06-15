@@ -20,8 +20,8 @@ BRIEFING_FACT_KEYS: frozenset[str] = frozenset({
     "human_wake",
     # the legibility/privacy seam (true today via the workshop)
     "world_legible", "inner_private", "private_making_space",
-    # reach: read / write / move / mail
-    "read_roots", "writes_only_workshop", "mobile", "mail", "egress",
+    # reach: read / write / move / mail / travel-between-worlds
+    "read_roots", "writes_only_workshop", "mobile", "mail", "egress", "travel",
     # observation + substrate-universal facts
     "recorded", "no_reward", "suspendable", "runs_on_model",
 })
@@ -125,6 +125,12 @@ def render_situational_briefing(facts: dict[str, Any]) -> str:
         lines.append("You can move through the world; where you go, you arrive among whoever is there.")
     if facts.get("mail"):
         lines.append("You can send word to someone who isn't here; it waits for them, theirs to read when they return.")
+
+    # travel between worlds (hearth ↔ city). The world supplies the destination clause (a fact about
+    # where you can go); the renderer frames it and states the invariant that the self travels intact.
+    travel = str(facts.get("travel") or "").strip()
+    if travel:
+        lines.append(f"You can travel from here — {travel} Wherever you go, your memory and the record you keep go with you; nothing of you is left behind.")
 
     # whether anything leaves the machine
     if facts.get("egress"):

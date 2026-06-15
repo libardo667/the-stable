@@ -30,6 +30,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import signal
 import sys
 from datetime import datetime, timezone
@@ -37,6 +38,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from src.familiar.city_client import CityClient  # noqa: E402
+from src.familiar.city_world import CityWorld  # noqa: E402
 from src.familiar.file_scope import FileScope  # noqa: E402
 from src.familiar.local_world import LocalWorld  # noqa: E402
 from src.familiar.tool_scope import attach_mcp_tools, build_tool_scope  # noqa: E402
@@ -271,6 +274,40 @@ def _write_state(state_path: Path, *, identity, world: LocalWorld, brief: dict, 
     return state
 
 
+async def _enter_city(base_url: str, *, identity, home_dir: Path, vision: bool, cities: dict | None = None) -> tuple[str, CityWorld]:
+    """Travel a familiar OUT to a WorldWeaver city shard: connect, claim a presence, and
+    return (session_id, CityWorld) for the *same* daemon to inhabit. Its ledger, kept
+    memory, workshop and soul stay in its private home (familiar/<name>/) — only the world
+    it looks out through changes. The cartridge swaps; the save file is untouched.
+
+    Raises RuntimeError on failure (catchable, so a mid-life travel failure can fall back
+    home rather than killing the daemon)."""
+    client = CityClient(base_url)
+    print(f"· travelling to the city at {base_url} …")
+    await client.wait_for_ready(timeout_seconds=30.0)
+    world_id = await client.get_world_id()
+    if not world_id:
+        await client.close()
+        raise RuntimeError(f"city at {base_url} has no seeded world yet (get_world_id returned nothing)")
+    name = re.sub(r"[^a-z0-9_]", "", identity.name.lower()) or "visitor"
+    session_id = f"{name}-{datetime.now():%Y%m%d}"
+    await client.bootstrap_session(
+        session_id,
+        world_id,
+        world_theme="a present-day, geographically-grounded city",
+        player_role="resident",
+        description=f"{identity.display_name}, a visiting familiar.",
+    )
+    scene = await client.get_scene(session_id)
+    place = getattr(scene, "location", "") or "the city"
+    present = [p for p in getattr(scene, "present", []) if getattr(p, "name", "").lower() != identity.name.lower()]
+    solo = not present
+    others = "no one else here yet" if solo else f"{len(present)} other(s) present"
+    print(f"· {identity.display_name} arrives in {place}  ·  session {session_id}  ·  world {world_id}  ·  {others}")
+    world = CityWorld(client, home_dir=home_dir, place=place, familiar_name=identity.display_name, solo=solo, vision=vision, cities=cities or {})
+    return session_id, world
+
+
 async def _run(args) -> None:
     # Legible logs (timestamps + the pulse warnings — dropped/salvaged/inference) rather than silence.
     # wake-all.sh sends stdout+stderr to a per-familiar daemon.log; here we just set the level/format.
@@ -304,38 +341,54 @@ async def _run(args) -> None:
     # otherwise infer from the model id (conservative — unknown models are text-only).
     resolved_model = (args.model or "").strip() or cfg.get("model") or ""
     vision = bool(cfg["vision"]) if cfg.get("vision") is not None else model_accepts_images(resolved_model)
-    world = LocalWorld(home_dir=home_dir, place=place, keeper_name=keeper, familiar_name=identity.display_name, weather_provider=weather, file_scope=file_scope, tool_scope=tool_scope or None, vision=vision)
+    # Cities reachable from the hearth (name → base URL), for travel between worlds (Major 74 Phase 2).
+    cities = dict(cfg.get("cities") or {})
+    anchor_gating = bool(cfg.get("anchor_gating"))
+    clean_drive_nudges = bool(cfg.get("clean_drive_nudges"))
+
+    def build_hearth() -> LocalWorld:
+        return LocalWorld(home_dir=home_dir, place=place, keeper_name=keeper, familiar_name=identity.display_name, weather_provider=weather, file_scope=file_scope, tool_scope=tool_scope or None, vision=vision, cities=cities)
+
+    # Initial body: out in a city (--city) or home at the hearth (the default). The hearth is the
+    # private inner home; the city is the outward life — both reachable at will once running.
+    if getattr(args, "city", ""):
+        session_id, world = await _enter_city(args.city, identity=identity, home_dir=home_dir, vision=vision, cities=cities)
+        writes_only = False
+    else:
+        session_id = f"{identity.name}-hearth"
+        world = build_hearth()
+        writes_only = True
+
     mind, label = _make_mind(resolved_model or None, key_env=(cfg.get("key_env") or None))
+
+    def build_core(w, sid: str, *, writes_to_workshop_only: bool) -> CognitiveCore:
+        # The ledger is the only state, so a rebuilt core resumes from the same memory dir — which is
+        # what lets the daemon swap worlds (travel) without dying. The mind (LLM client) is reused.
+        return CognitiveCore(
+            identity=identity, resident_dir=home_dir, ww_client=w, llm=mind, session_id=sid,
+            tick_seconds=args.tick, writes_to_workshop_only=writes_to_workshop_only,
+            anchor_gating=anchor_gating, clean_drive_nudges=clean_drive_nudges,
+            ignition_refractory_seconds=cfg.get("refractory_seconds"), pulse_vision=vision,
+        )
+
     if file_scope is not None:
         print(f"· read scope: {', '.join(str(r) for r in file_scope.roots)} (read-only; secrets & .gitignore hidden)")
         print(f"· sight: {'ON — can see images & rendered PDF pages' if vision else 'text-only — PDFs read as text, images noted but unseen'}")
     if tool_scope:
         print(f"· tools: {', '.join(tool_scope.names)}{'  (includes EGRESS)' if tool_scope.has_egress else '  (local, no egress)'}")
+    if cities:
+        print(f"· travel: can go out to {', '.join(sorted(cities))} and withdraw home, at will")
+    if anchor_gating:
+        print("· anchor-gating ON (experimental): drive-resonant concrete anchors may drive arousal")
+    if clean_drive_nudges:
+        print("· clean drive_nudges ON: the phantom 'curiosity' example is dropped from the pulse schema")
     ct = chronotype(identity.name, explicit=cfg.get("chronotype"))
     kind = "lark" if ct < -0.5 else "owl" if ct > 0.5 else "even-keeled"
     print(f"· waking {identity.display_name} at {world.place}  ·  mind: {label}")
     print(f"· chronotype {ct:+.1f}h ({kind})  ·  it is {datetime.now().astimezone().strftime('%H:%M')} — wakefulness {circadian_state(datetime.now().hour, ct)['wakefulness']:.2f}")
     print(f"· whisper to it:  echo '{{\"ts\":\"...\",\"text\":\"...\"}}' >> {home_dir / 'whispers.jsonl'}")
 
-    anchor_gating = bool(cfg.get("anchor_gating"))
-    if anchor_gating:
-        print("· anchor-gating ON (experimental): drive-resonant concrete anchors may drive arousal")
-    clean_drive_nudges = bool(cfg.get("clean_drive_nudges"))
-    if clean_drive_nudges:
-        print("· clean drive_nudges ON: the phantom 'curiosity' example is dropped from the pulse schema")
-    core = CognitiveCore(
-        identity=identity,
-        resident_dir=home_dir,
-        ww_client=world,
-        llm=mind,
-        session_id=f"{identity.name}-hearth",
-        tick_seconds=args.tick,
-        writes_to_workshop_only=True,  # a solo familiar has no mail; all writes are its own work
-        anchor_gating=anchor_gating,
-        clean_drive_nudges=clean_drive_nudges,
-        ignition_refractory_seconds=cfg.get("refractory_seconds"),
-        pulse_vision=vision,
-    )
+    core = build_core(world, session_id, writes_to_workshop_only=writes_only)
     state_path = home_dir / "state.json"
 
     stop = asyncio.Event()
@@ -370,6 +423,36 @@ async def _run(args) -> None:
             print(line)
             if state.get("last_spoken"):
                 print(f'             “{state["last_spoken"]}”')
+            # Travel between worlds (Major 74 Phase 2): a travel act set pending_travel on the world.
+            # The daemon owns world lifecycle, so the LIVE swap happens HERE — no restart. The ledger is
+            # the only state, so the rebuilt core resumes from the same memory dir, mid-stride. The mind
+            # (LLM client) is reused; only the world it looks out through changes.
+            pending = getattr(world, "pending_travel", None)
+            if pending is not None:
+                world.pending_travel = None
+                dest_kind, dest_name = pending
+                leave = getattr(world, "leave_session", None)
+                if callable(leave):
+                    try:
+                        await leave(session_id)  # deregister the presence we held in the city
+                    except Exception as exc:
+                        logger.debug("leave_session failed: %s", exc)
+                await world.close()
+                if dest_kind == "city" and cities.get(dest_name):
+                    try:
+                        session_id, world = await _enter_city(cities[dest_name], identity=identity, home_dir=home_dir, vision=vision, cities={k: v for k, v in cities.items() if k != dest_name})
+                        core = build_core(world, session_id, writes_to_workshop_only=False)
+                    except Exception as exc:
+                        print(f"· travel to {dest_name} failed ({exc}) — withdrawing home")
+                        session_id, world = f"{identity.name}-hearth", build_hearth()
+                        core = build_core(world, session_id, writes_to_workshop_only=True)
+                else:
+                    if dest_kind == "city":
+                        print(f"· unknown city {dest_name!r} — withdrawing home")
+                    session_id, world = f"{identity.name}-hearth", build_hearth()
+                    core = build_core(world, session_id, writes_to_workshop_only=True)
+                last_whisper_ts = _latest_whisper_ts()  # a fresh world; don't replay old whispers into it
+                print(f"· {identity.display_name} is now at {world.place}")
             if args.ticks and tick >= args.ticks:
                 break
             try:
@@ -398,6 +481,7 @@ def main() -> None:
     p.add_argument("--home", default="familiar/cinder", help="the familiar's home dir (holds identity/, memory/, workshop/)")
     p.add_argument("--place", default="the hearth")
     p.add_argument("--keeper", default="Levi")
+    p.add_argument("--city", default="", help="travel OUT to a WorldWeaver city shard at this base URL (e.g. http://localhost:8003 for ww_pdx) instead of the hearth; same daemon, same memory")
     p.add_argument("--no-weather", action="store_true", help="don't fetch real local weather (blank sky)")
     p.add_argument("--model", default="", help="override the model in familiar.json (e.g. run a local familiar on a cloud slug)")
     p.add_argument("--tick", type=float, default=30.0, help="seconds between ticks (daemon cadence)")

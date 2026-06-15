@@ -26,6 +26,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from src.familiar.travel import parse_travel
+
 _READ_RX = re.compile(r"^\s*(?:read|open|look(?:\s+at)?|cat|show|view)\s+(.+)$", re.IGNORECASE)
 # A tool use parsed out of a `do` act: "use <tool> <free-text input>" (Major 54).
 _TOOL_RX = re.compile(r"^\s*(?:use|tool|call)\s+(\S+)\s*(.*)$", re.IGNORECASE | re.DOTALL)
@@ -165,6 +167,7 @@ class LocalWorld:
         file_scope: Any = None,
         tool_scope: Any = None,
         vision: bool = False,
+        cities: dict | None = None,
     ) -> None:
         self.home_dir = Path(home_dir)
         self.home_dir.mkdir(parents=True, exist_ok=True)
@@ -197,6 +200,11 @@ class LocalWorld:
         # Recent things the familiar said / did, for the portrait to show.
         self.spoken: list[dict[str, Any]] = []
         self.gestures: list[dict[str, Any]] = []
+        # Travel between worlds (Major 74 Phase 2): cities reachable FROM the hearth (name → base URL).
+        # When the familiar acts to travel to one, post_action sets ``pending_travel`` and the daemon
+        # performs the live world-swap after the tick. None until a travel act fires.
+        self._cities = dict(cities or {})
+        self.pending_travel: tuple[str, str] | None = None
 
     # --- capability scoping (Major 50) -----------------------------------
     # LocalWorld has no mail/correspondence backend and no map to move on — the
@@ -229,7 +237,7 @@ class LocalWorld:
         """
         roots = [getattr(r, "name", "") for r in (self._file_scope.roots if self._file_scope is not None else [])]
         tools = list(self._tool_scope.list()) if self._tool_scope else []
-        return {
+        facts: dict[str, Any] = {
             "solo": True,                  # one-resident world: no peers, no players
             "local_only": True,            # runs on this one machine
             "place": self.place,
@@ -242,6 +250,14 @@ class LocalWorld:
             "suspendable": True,           # process stoppable; home persists on disk
             "runs_on_model": True,         # cognition is one LLM pulse per ignition
         }
+        # Travel (Major 74 Phase 2): if cities are reachable from here, state it as an affordance —
+        # the exact phrase to use and where it leads. A fact (you can go there), never an urging.
+        # Framing (Major 74 Phase 2): this hearth is the resident's PRIVATE inner home; the city is the
+        # outward life it goes out INTO. Both are at will. State it as where-you-can-go, not what it means.
+        if self._cities:
+            phrases = "; ".join(f"say 'travel to {name}' to go out into {name.title()}, among whoever is there" for name in sorted(self._cities))
+            facts["travel"] = f"{phrases}. This home stays yours, here for whenever you withdraw back to it."
+        return facts
 
     # --- time ------------------------------------------------------------
 
@@ -539,7 +555,12 @@ class LocalWorld:
         return {"id": 1}
 
     async def post_map_move(self, session_id: str, destination: str) -> dict[str, Any]:
-        # A familiar keeps to its hearth; movement is a gentle no-op.
+        # A move whose destination names a known city is inter-world travel, not a hearth step.
+        intent = parse_travel(destination, cities=set(self._cities), allow_home=False)
+        if intent is not None:
+            self.pending_travel = intent
+            return {"moved": True, "to_location": intent[1].title(), "route_remaining": [], "narrative": f"You set out for {intent[1].title()}."}
+        # A familiar keeps to its hearth; ordinary movement is a gentle no-op.
         return {"moved": False, "to_location": self.place, "route_remaining": []}
 
     def pending_images(self) -> list[str]:
@@ -593,6 +614,15 @@ class LocalWorld:
 
     async def post_action(self, session_id: str, action: str) -> _ActionResult:
         body = str(action or "").strip()
+        # Travel between worlds (Major 74 Phase 2): mobility_drive is muted at the hearth, so a
+        # familiar reaches a city through a free-text act ("travel to portland"). Recognise it,
+        # acknowledge cleanly, and signal the daemon (which owns world lifecycle) to swap after the tick.
+        intent = parse_travel(body, cities=set(self._cities), allow_home=False)
+        if intent is not None:
+            self.pending_travel = intent
+            name = intent[1]
+            self._record_voice("do", f"travel to {name}")
+            return _ActionResult(f"You gather yourself and set out for {name.title()}. The hearth stays where it is; you carry everything with you.")
         match = _READ_RX.match(body)
         if match is not None and self._file_scope is not None:
             raw = match.group(1).strip().strip("\"'`")

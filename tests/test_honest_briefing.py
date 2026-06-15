@@ -202,6 +202,7 @@ def test_localworld_capabilities_are_briefing_classified(tmp_path):
         "keeper_name": "keeper",
         "file_scope": "read_roots",
         "tool_scope": "egress",
+        "cities": "travel",  # cities reachable from the hearth → the 'travel' affordance (Major 74)
     }
     EXEMPT = {  # param -> why it is not a standing situational fact
         "home_dir": "where the entity's home/state lives on disk — not a situational fact",

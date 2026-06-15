@@ -27,7 +27,7 @@ from src.runtime.drive import _cosine
 from src.runtime.ledger import load_runtime_events, reduce_runtime_events
 from src.runtime.memory import memories
 from src.runtime.pulse import Pulse, PulseValidationError
-from src.runtime.salience import SELF_SENSES
+from src.runtime.salience import SELF_SENSES, derive_disorientation
 from src.runtime.substrate import derive_baseline, predict
 
 logger = logging.getLogger(__name__)
@@ -127,6 +127,28 @@ def _pulse_contract(live_senses: tuple[str, ...] = SELF_SENSES, clean_drive_nudg
 # Back-compat: the full-axes contract as a module constant (any importer / the
 # default when no world scoping applies — e.g. shard residents).
 _PULSE_CONTRACT = _pulse_contract(SELF_SENSES)
+
+
+def _disorientation_readout(state: dict[str, Any]) -> str:
+    """Render the disorientation channel (Major 72) as a separate, readout-only block the mind can
+    FEEL — kept clean of the felt senses, never folded into arousal. It surfaces only when it has
+    something to announce (like the active felt nodes), names the incoherence honestly, and never
+    instructs or acts. The reckoning it could convene is Phase 1 and stays gated (loop Maker in)."""
+    cues = state.get("cues") or []
+    if not cues:
+        return ""
+    score = round(float(state.get("score") or 0.0), 2)
+    threshold = state.get("threshold") or 1.0
+    over = " (over the line)" if state.get("over") else ""
+    cue_lines = "\n".join(f"  · {c.get('detail')}" for c in cues[:3])
+    return (
+        "Your bearings — a signal of your own, kept separate from how you feel (disorientation):\n"
+        f"  {score} of {threshold}{over}. What it is noticing:\n"
+        f"{cue_lines}\n"
+        "This is a readout only, like your felt sense: it names when you may be reaching for the wrong tool, "
+        "claiming an act the record does not show, or re-walking a worn groove. It never instructs and never "
+        "acts; what you do with it is yours.\n\n"
+    )
 
 
 def _unescape(s: str) -> str:
@@ -408,6 +430,10 @@ class LLMPulseProducer:
 
     def _build_prompt(self, *, traces: list[dict[str, Any]], stimulus: dict[str, Any], arousal: float, resonance: dict[str, Any] | None = None, recalled: list[str] | None = None, self_sameness: float = 0.0, mode: str = "react") -> str:
         events = load_runtime_events(self._memory_dir)
+        # Disorientation channel (Major 72): a separate, readout-only signal the mind can FEEL,
+        # kept clean of arousal and the felt senses. Surfaces only when it has something to
+        # announce; it never gates ignition and never convenes a reckoning (Phase 1, gated).
+        disorientation_block = _disorientation_readout(derive_disorientation(events))
         afterimage = predict(self._memory_dir, now=None)
         baseline = derive_baseline(events, now=None)
         reduced = reduce_runtime_events(events)
@@ -530,7 +556,7 @@ class LLMPulseProducer:
             interior = f"What you predicted would hold (your afterimage):\n{_format_field(afterimage)}\n\n" f"What you actually feel right now:\n{felt}\n\n" f"What surprised you (most surprising first):\n{surprises}\n\n"
             invitation = resonance_block
 
-        return f"{opener}" f"{when_block}" f"Where you are: {location}. Present: {present}.\n" f"Recently here: {recent}.\n\n" f"{heard_block}" f"{inbox_block}" f"{move_block}" f"{memory_block}" f"{workshop_block}" f"{settled_block}" f"{anchors_block}" f"{interior}" f"{invitation}" f"{_pulse_contract(self.live_senses, self.clean_drive_nudges, self.solo)}"
+        return f"{opener}" f"{when_block}" f"Where you are: {location}. Present: {present}.\n" f"Recently here: {recent}.\n\n" f"{heard_block}" f"{inbox_block}" f"{move_block}" f"{memory_block}" f"{workshop_block}" f"{settled_block}" f"{anchors_block}" f"{interior}" f"{disorientation_block}" f"{invitation}" f"{_pulse_contract(self.live_senses, self.clean_drive_nudges, self.solo)}"
 
     # --- tool loop (Major 59): continue within one ignition after a tool call ---
 

@@ -1,0 +1,994 @@
+from __future__ import annotations
+
+import asyncio
+import logging
+import os
+import re
+import time
+from dataclasses import dataclass, field
+from typing import Any
+
+import httpx
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Data types — matches actual WorldWeaver API response shapes
+# ---------------------------------------------------------------------------
+
+@dataclass
+class PresentCharacter:
+    name: str
+    role: str
+    last_action: str
+    last_seen: str  # ISO-8601
+
+
+@dataclass
+class RecentEvent:
+    who: str
+    summary: str
+    ts: str  # ISO-8601
+
+
+@dataclass
+class AmbientPresence:
+    kind: str
+    label: str
+    source: str = ""
+    intensity: float = 0.0
+    ttl_seconds: int = 0
+    pressure_tags: list[str] = field(default_factory=list)
+    sensory_note: str = ""
+
+
+@dataclass
+class SceneData:
+    session_id: str
+    location: str
+    role: str
+    present: list[PresentCharacter]
+    recent_events_here: list[RecentEvent]
+    location_graph: dict  # raw, used for navigation only — not surfaced to LLM
+    ambient_presence: list[AmbientPresence] = field(default_factory=list)
+
+
+@dataclass
+class TurnResult:
+    narrative: str          # from /api/action: "narrative"; from /api/next: "text"
+    choices: list[dict]
+    vars: dict
+    public_summary: str = ""
+    plausible: bool = True
+
+
+@dataclass
+class WorldFact:
+    summary: str
+    subject: str = ""
+    predicate: str = ""
+    value: str = ""
+    confidence: float = 1.0
+
+
+@dataclass
+class DM:
+    filename: str
+    body: str
+
+
+@dataclass
+class DMRecipient:
+    label: str
+    recipient_key: str
+    recipient_type: str = "agent"
+
+
+@dataclass
+class ChatMessage:
+    id: int
+    session_id: str
+    display_name: str
+    message: str
+    ts: str  # ISO-8601
+
+
+_AGENT_SLUG_RE = re.compile(r"^([a-z][a-z0-9_]*)[-_]\d{8}")
+
+
+# ---------------------------------------------------------------------------
+# Prose rendering — SceneData → natural language for LLM prompts
+# The agent never sees raw API fields.
+# ---------------------------------------------------------------------------
+
+def scene_to_prose(scene: SceneData, character_name: str) -> str:
+    """
+    Transform structured scene data into natural prose for LLM context.
+    No JSON field names, no API vocabulary, no raw arrays.
+
+    Example output:
+        You are in the Deeper Corridor. Casper is nearby — he set something
+        down a few minutes ago and hasn't moved since. Elias left a while back.
+
+        Recently here: A low hum started somewhere in the ceiling.
+    """
+    parts: list[str] = []
+
+    # Location
+    parts.append(f"You are in {scene.location}.")
+
+    # Who's present (excluding self)
+    others = [p for p in scene.present if p.name.lower() != character_name.lower()]
+    if others:
+        presence_parts = []
+        for p in others:
+            # Prefer role (character/player name) over name (session slug)
+            display = p.role if p.role and p.role != p.name else p.name
+            if p.last_action:
+                presence_parts.append(f"{display} is here — {p.last_action.rstrip('.')}")
+            else:
+                presence_parts.append(f"{display} is here")
+        parts.append(" ".join(presence_parts) + ".")
+    else:
+        parts.append("No one else is here right now.")
+
+    if scene.ambient_presence:
+        labels = [item.label.rstrip(".") for item in scene.ambient_presence[:3] if item.label]
+        if labels:
+            parts.append("Around the edges: " + ". ".join(labels) + ".")
+
+    # Recent events at this location
+    if scene.recent_events_here:
+        event_lines = [e.summary.rstrip(".") for e in scene.recent_events_here[:5]]
+        parts.append("Recently: " + ". ".join(event_lines) + ".")
+
+    return " ".join(parts)
+
+
+def world_facts_to_prose(facts: list[WorldFact], limit: int = 5) -> str:
+    """
+    Render retrieved world facts as prose for slow loop context.
+    Returns empty string if no facts. Facts are already summaries — just join them.
+    """
+    if not facts:
+        return ""
+    lines = [f.summary for f in facts[:limit] if f.summary]
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Client
+# ---------------------------------------------------------------------------
+
+class WorldClientError(Exception):
+    pass
+
+
+class CityClient:
+    """
+    Async HTTP client for the WorldWeaver server.
+    Shared across all residents. Stateless — all session context comes from caller.
+    """
+
+    def __init__(self, base_url: str, timeout_scene: float = 30.0, timeout_action: float = 120.0):
+        self._base_url = base_url.rstrip("/")
+        self._timeout_scene = timeout_scene
+        self._timeout_action = timeout_action
+        try:
+            self._roster_directory_ttl_seconds = max(
+                5.0,
+                float(os.environ.get("WW_ROSTER_DIRECTORY_CACHE_SECONDS", "15.0")),
+            )
+        except ValueError:
+            self._roster_directory_ttl_seconds = 15.0
+        self._roster_directory_cache: dict[str, tuple[float, list[dict[str, Any]]]] = {}
+        # Single shared connection pool
+        self._client = httpx.AsyncClient(
+            base_url=self._base_url,
+            headers={"Content-Type": "application/json"},
+        )
+
+    # ------------------------------------------------------------------
+    # Health & World ID
+    # ------------------------------------------------------------------
+
+    async def health(self) -> bool:
+        try:
+            resp = await self._client.get("/health", timeout=5.0)
+            return resp.status_code == 200
+        except Exception:
+            return False
+
+    async def wait_for_ready(self, timeout_seconds: float = 120.0, poll_interval: float = 2.0) -> None:
+        deadline = asyncio.get_event_loop().time() + timeout_seconds
+        while asyncio.get_event_loop().time() < deadline:
+            if await self.health():
+                return
+            await asyncio.sleep(poll_interval)
+        raise WorldClientError(f"WorldWeaver server not ready after {timeout_seconds}s")
+
+    async def get_world_id(self) -> str | None:
+        """Get the shared world ID. Returns None if not yet seeded."""
+        resp = await self._get("/api/world/id", timeout=10.0)
+        data = resp.json()
+        return data.get("world_id") or None
+
+    async def _get_roster_directory(self, session_id: str | None = None) -> list[dict[str, Any]]:
+        cache_key = session_id or ""
+        now_monotonic = time.monotonic()
+        cached = self._roster_directory_cache.get(cache_key)
+        if cached and cached[0] > now_monotonic:
+            return cached[1]
+
+        path = "/api/world/roster-directory"
+        if session_id:
+            path = f"{path}?session_id={session_id}"
+        resp = await self._get(path, timeout=10.0)
+        data = resp.json()
+        roster = list(data.get("roster", []) or [])
+        self._roster_directory_cache[cache_key] = (
+            now_monotonic + self._roster_directory_ttl_seconds,
+            roster,
+        )
+        if len(self._roster_directory_cache) > 8:
+            expired = [key for key, value in self._roster_directory_cache.items() if value[0] <= now_monotonic]
+            for key in expired:
+                self._roster_directory_cache.pop(key, None)
+        return roster
+
+    async def get_active_session_ids(self) -> list[str]:
+        """Return all session IDs currently in the world roster (human + AI)."""
+        try:
+            roster = await self._get_roster_directory()
+            return [entry["session_id"] for entry in roster if entry.get("session_id")]
+        except Exception:
+            return []
+
+    async def get_human_player_names(self) -> list[str]:
+        """Return display/player names for human (non-agent) roster entries."""
+        _AGENT_SLUG = re.compile(r"^[a-z][a-z0-9_]*[-_]\d{8}")
+        try:
+            roster = await self._get_roster_directory()
+            names = []
+            for entry in roster:
+                sid = entry.get("session_id", "")
+                if _AGENT_SLUG.match(sid):
+                    continue  # skip AI agent sessions
+                for field in ("player_name", "display_name"):
+                    val = entry.get(field)
+                    if val:
+                        names.append(val)
+                        break
+            return names
+        except Exception:
+            return []
+
+    async def get_roster_display_names(self) -> list[str]:
+        """Return display names for all active roster entries, human and AI."""
+        try:
+            roster = await self._get_roster_directory()
+            names: list[str] = []
+            seen: set[str] = set()
+            for entry in roster:
+                value = str(entry.get("display_name") or entry.get("player_name") or "").strip()
+                if not value:
+                    continue
+                normalized = value.lower()
+                if normalized in seen:
+                    continue
+                seen.add(normalized)
+                names.append(value)
+            return names
+        except Exception:
+            return []
+
+    async def get_roster_recipients(self) -> list[DMRecipient]:
+        """Return deliverable DM recipients from the current roster."""
+        try:
+            roster = await self._get_roster_directory()
+        except Exception:
+            return []
+
+        recipients: list[DMRecipient] = []
+        seen: set[tuple[str, str]] = set()
+        for entry in roster:
+            session_id = str(entry.get("session_id") or "").strip()
+            label = str(entry.get("display_name") or entry.get("player_name") or "").strip()
+            recipient_key = str(entry.get("recipient_key") or "").strip()
+            recipient_type = str(entry.get("recipient_type") or "").strip() or "agent"
+            if not session_id or not label:
+                continue
+            if not recipient_key:
+                session_id = str(entry.get("session_id") or "").strip()
+                if not session_id:
+                    continue
+                agent_key = _agent_key_from_session_id(session_id)
+                if agent_key:
+                    recipient = DMRecipient(label=label, recipient_key=agent_key, recipient_type="agent")
+                else:
+                    recipient = DMRecipient(label=label, recipient_key=session_id, recipient_type="player")
+            else:
+                recipient = DMRecipient(label=label, recipient_key=recipient_key, recipient_type=recipient_type)
+            dedupe_key = (recipient.recipient_type, recipient.recipient_key)
+            if dedupe_key in seen:
+                continue
+            seen.add(dedupe_key)
+            recipients.append(recipient)
+        return recipients
+
+    async def resolve_dm_recipient(self, recipient: str) -> DMRecipient | None:
+        raw = re.sub(r"\s+", " ", str(recipient or "").strip())
+        if not raw:
+            return None
+
+        lowered = raw.lower()
+        compact = lowered.replace("_", " ").replace("-", " ")
+        roster = await self.get_roster_recipients()
+        if not roster:
+            return None
+
+        exact_matches = [item for item in roster if item.label.strip().lower() == lowered]
+        if len(exact_matches) == 1:
+            return exact_matches[0]
+
+        compact_matches = [
+            item
+            for item in roster
+            if item.label.strip().lower().replace("_", " ").replace("-", " ") == compact
+            or item.recipient_key.strip().lower().replace("_", " ").replace("-", " ") == compact
+        ]
+        if len(compact_matches) == 1:
+            return compact_matches[0]
+
+        first_name_matches = [
+            item
+            for item in roster
+            if item.label.split(" ", 1)[0].strip().lower() == lowered
+        ]
+        if len(first_name_matches) == 1:
+            return first_name_matches[0]
+
+        return None
+
+    # ------------------------------------------------------------------
+    # Session Bootstrap
+    # ------------------------------------------------------------------
+
+    async def bootstrap_session(
+        self,
+        session_id: str,
+        world_id: str,
+        world_theme: str,
+        player_role: str,
+        *,
+        actor_id: str = "",
+        tone: str = "grounded, observational",
+        description: str = "",
+        entry_location: str = "",
+    ) -> dict:
+        payload: dict[str, Any] = {
+            "session_id": session_id,
+            "world_id": world_id,
+            "world_theme": world_theme,
+            "player_role": player_role,
+            "tone": tone,
+            "bootstrap_source": "worldweaver-agent",
+        }
+        if actor_id:
+            payload["actor_id"] = actor_id
+        if description:
+            payload["description"] = description
+        if entry_location:
+            payload["entry_location"] = entry_location
+
+        resp = await self._post("/api/session/bootstrap", payload, timeout=60.0)
+        return resp.json()
+
+    async def get_session_vars(self, session_id: str, prefix: str | None = None) -> dict:
+        params: dict[str, Any] = {}
+        if prefix:
+            params["prefix"] = prefix
+        resp = await self._get_with_retry(
+            f"/api/state/{session_id}/vars",
+            params=params,
+            timeout=self._timeout_scene,
+        )
+        return resp.json()
+
+    async def update_session_vars(self, session_id: str, vars: dict[str, Any]) -> dict:
+        resp = await self._post(
+            f"/api/state/{session_id}/vars",
+            {"vars": vars},
+            timeout=30.0,
+        )
+        return resp.json()
+
+    async def get_identity_growth(self, session_id: str) -> dict:
+        resp = await self._get_with_retry(
+            f"/api/state/{session_id}/identity-growth",
+            timeout=self._timeout_scene,
+        )
+        return resp.json()
+
+    async def update_identity_growth(
+        self,
+        session_id: str,
+        *,
+        growth_text: str | None = None,
+        growth_metadata: dict[str, Any] | None = None,
+        note_records: list[dict[str, Any]] | None = None,
+        growth_proposals: list[dict[str, Any]] | None = None,
+    ) -> dict:
+        payload: dict[str, Any] = {}
+        if growth_text is not None:
+            payload["growth_text"] = growth_text
+        if growth_metadata is not None:
+            payload["growth_metadata"] = growth_metadata
+        if note_records is not None:
+            payload["note_records"] = note_records
+        if growth_proposals is not None:
+            payload["growth_proposals"] = growth_proposals
+        resp = await self._post(
+            f"/api/state/{session_id}/identity-growth",
+            payload,
+            timeout=30.0,
+        )
+        return resp.json()
+
+    async def get_guild_profile(self, session_id: str) -> dict:
+        resp = await self._get_with_retry(
+            f"/api/state/{session_id}/guild-profile",
+            timeout=self._timeout_scene,
+        )
+        return resp.json()
+
+    async def update_guild_profile(self, session_id: str, payload: dict[str, Any]) -> dict:
+        resp = await self._post(
+            f"/api/state/{session_id}/guild-profile",
+            payload,
+            timeout=30.0,
+        )
+        return resp.json()
+
+    async def get_social_feedback(self, session_id: str, limit: int = 50) -> dict:
+        resp = await self._get_with_retry(
+            f"/api/state/{session_id}/social-feedback",
+            params={"limit": limit},
+            timeout=self._timeout_scene,
+        )
+        return resp.json()
+
+    async def post_social_feedback(self, session_id: str, payload: dict[str, Any]) -> dict:
+        resp = await self._post(
+            f"/api/state/{session_id}/social-feedback",
+            payload,
+            timeout=30.0,
+        )
+        return resp.json()
+
+    async def get_runtime_adaptation(self, session_id: str) -> dict:
+        resp = await self._get_with_retry(
+            f"/api/state/{session_id}/adaptation",
+            timeout=self._timeout_scene,
+        )
+        return resp.json()
+
+    async def get_guild_quests(self, session_id: str, *, status: str = "active", limit: int = 50) -> dict:
+        params: dict[str, Any] = {"limit": limit}
+        if str(status or "").strip():
+            params["status"] = str(status).strip()
+        resp = await self._get_with_retry(
+            f"/api/state/{session_id}/guild-quests",
+            params=params,
+            timeout=self._timeout_scene,
+        )
+        return resp.json()
+
+    async def post_guild_quest(self, session_id: str, payload: dict[str, Any]) -> dict:
+        resp = await self._post(
+            f"/api/state/{session_id}/guild-quests",
+            payload,
+            timeout=30.0,
+        )
+        return resp.json()
+
+    async def update_guild_quest(self, session_id: str, quest_id: int, payload: dict[str, Any]) -> dict:
+        resp = await self._post(
+            f"/api/state/{session_id}/guild-quests/{int(quest_id)}",
+            payload,
+            timeout=30.0,
+        )
+        return resp.json()
+
+    # ------------------------------------------------------------------
+    # Scene (fast + slow loops)
+    # ------------------------------------------------------------------
+
+    async def get_scene(self, session_id: str) -> SceneData:
+        resp = await self._get_with_retry(f"/api/world/scene/{session_id}", timeout=self._timeout_scene)
+        data = resp.json()
+
+        present = [
+            PresentCharacter(
+                name=p.get("name", ""),
+                role=p.get("role", ""),
+                last_action=p.get("last_action", ""),
+                last_seen=p.get("last_seen", ""),
+            )
+            for p in data.get("present", [])
+        ]
+        ambient_presence = [
+            AmbientPresence(
+                kind=str(item.get("kind", "")),
+                label=str(item.get("label", "")),
+                source=str(item.get("source", "")),
+                intensity=float(item.get("intensity", 0.0) or 0.0),
+                ttl_seconds=int(item.get("ttl_seconds", 0) or 0),
+                pressure_tags=[str(tag) for tag in list(item.get("pressure_tags") or []) if str(tag)],
+                sensory_note=str(item.get("sensory_note", "")),
+            )
+            for item in data.get("ambient_presence", [])
+            if isinstance(item, dict)
+        ]
+        events = [
+            RecentEvent(
+                who=e.get("who", ""),
+                summary=e.get("summary", ""),
+                ts=e.get("ts", ""),
+            )
+            for e in data.get("recent_events_here", [])
+        ]
+
+        return SceneData(
+            session_id=session_id,
+            location=data.get("location", ""),
+            role=data.get("role", ""),
+            present=present,
+            ambient_presence=ambient_presence,
+            recent_events_here=events,
+            location_graph=data.get("location_graph", {}),
+        )
+
+    async def get_new_events(self, session_id: str, since: str) -> list[RecentEvent]:
+        """Poll for events at the agent's location since a timestamp. Fast loop trigger."""
+        resp = await self._get_with_retry(
+            f"/api/world/scene/{session_id}/new-events",
+            params={"since": since},
+            timeout=self._timeout_scene,
+        )
+        data = resp.json()
+        return [
+            RecentEvent(who=e.get("who", ""), summary=e.get("summary", ""), ts=e.get("ts", ""))
+            for e in data.get("events", [])
+        ]
+
+    # ------------------------------------------------------------------
+    # Actions (fast + slow loops)
+    # ------------------------------------------------------------------
+
+    async def post_action(self, session_id: str, action: str) -> TurnResult:
+        """Submit a freeform action. No retries — idempotency not guaranteed."""
+        resp = await self._post(
+            "/api/action",
+            {"session_id": session_id, "action": action},
+            timeout=self._timeout_action,
+        )
+        data = resp.json()
+        return TurnResult(
+            narrative=data.get("narrative", ""),
+            choices=data.get("choices", []),
+            vars=data.get("vars", {}),
+            public_summary=data.get("public_summary", ""),
+            plausible=data.get("plausible", True),
+        )
+
+    async def post_next(self, session_id: str, vars: dict, choice_taken: dict | None = None) -> TurnResult:
+        """Advance to next storylet."""
+        payload: dict[str, Any] = {"session_id": session_id, "vars": vars}
+        if choice_taken:
+            payload["choice_taken"] = choice_taken
+        resp = await self._post("/api/next", payload, timeout=self._timeout_action)
+        data = resp.json()
+        return TurnResult(
+            narrative=data.get("text", ""),
+            choices=data.get("choices", []),
+            vars=data.get("vars", {}),
+        )
+
+    # ------------------------------------------------------------------
+    # World memory (slow loop context)
+    # ------------------------------------------------------------------
+
+    async def get_world_facts(self, query: str, session_id: str | None = None, limit: int = 5) -> list[WorldFact]:
+        """Semantic search over world event history. Uses server-side embeddings."""
+        params: dict[str, Any] = {"query": query, "limit": limit}
+        if session_id:
+            params["session_id"] = session_id
+        resp = await self._get_with_retry("/api/world/facts", params=params, timeout=self._timeout_scene)
+        data = resp.json()
+        return [
+            WorldFact(summary=f.get("summary", ""))
+            for f in data.get("facts", [])
+            if f.get("summary")
+        ]
+
+    async def get_graph_facts(self, query: str, session_id: str | None = None, limit: int = 5) -> list[WorldFact]:
+        """Semantic search over active world fact graph. Uses server-side embeddings."""
+        params: dict[str, Any] = {"query": query, "limit": limit}
+        if session_id:
+            params["session_id"] = session_id
+        resp = await self._get_with_retry("/api/world/graph/facts", params=params, timeout=self._timeout_scene)
+        data = resp.json()
+        return [
+            WorldFact(
+                summary=f.get("summary", ""),
+                subject=f.get("subject_node", {}).get("name", "") if isinstance(f.get("subject_node"), dict) else "",
+                predicate=f.get("predicate", ""),
+                value=f.get("value", ""),
+                confidence=f.get("confidence", 1.0),
+            )
+            for f in data.get("facts", [])
+            if f.get("summary")
+        ]
+
+    # ------------------------------------------------------------------
+    # DMs (mail loop)
+    # ------------------------------------------------------------------
+
+    async def get_inbox(self, agent_name: str) -> list[DM]:
+        """Mail loop: poll for unread DMs waiting for this agent. Marks them as read."""
+        resp = await self._get_with_retry(
+            f"/api/world/dm/inbox/{agent_name}", timeout=self._timeout_scene
+        )
+        data = resp.json()
+        return [
+            DM(filename=l.get("filename", ""), body=l.get("body", ""))
+            for l in data.get("letters", [])
+        ]
+
+    async def get_player_inbox(self, session_id: str) -> list[DM]:
+        """Poll for DMs deposited by agents into a player session inbox."""
+        resp = await self._get_with_retry(
+            f"/api/world/dm/my-inbox/{session_id}", timeout=self._timeout_scene
+        )
+        data = resp.json()
+        return [
+            DM(filename=l.get("filename", ""), body=l.get("body", ""))
+            for l in data.get("letters", [])
+        ]
+
+    async def send_letter(
+        self,
+        from_name: str,
+        to_agent: str,
+        body: str,
+        session_id: str,
+        *,
+        recipient_type: str = "agent",
+    ) -> dict:
+        resp = await self._post(
+            "/api/world/dm",
+            {
+                "from_name": from_name,
+                "to_agent": to_agent,
+                "recipient": to_agent,
+                "recipient_type": recipient_type,
+                "body": body,
+                "session_id": session_id,
+            },
+            timeout=30.0,
+        )
+        return resp.json()
+
+    async def reply_letter(self, from_agent: str, to_session_id: str, body: str) -> dict:
+        resp = await self._post(
+            "/api/world/dm/reply",
+            {"from_agent": from_agent, "to_session_id": to_session_id, "body": body},
+            timeout=30.0,
+        )
+        return resp.json()
+
+    # ------------------------------------------------------------------
+    # Location chat (co-located async messaging)
+    # ------------------------------------------------------------------
+
+    async def get_location_chat(self, location: str, since: str | None = None) -> list[ChatMessage]:
+        """Return recent chat messages at a location. Used by fast loop."""
+        params: dict[str, Any] = {"limit": "30"}
+        if since:
+            params["since"] = since
+        resp = await self._get_with_retry(
+            f"/api/world/location/{location}/chat",
+            params=params,
+            timeout=self._timeout_scene,
+        )
+        data = resp.json()
+        return [
+            ChatMessage(
+                id=m.get("id", 0),
+                session_id=m.get("session_id", ""),
+                display_name=m.get("display_name") or m.get("session_id", "")[:12],
+                message=m.get("message", ""),
+                ts=m.get("ts", ""),
+            )
+            for m in data.get("messages", [])
+        ]
+
+    async def post_location_chat(
+        self,
+        location: str,
+        session_id: str,
+        message: str,
+        display_name: str,
+    ) -> dict:
+        """Post a chat message at a location on behalf of an agent."""
+        resp = await self._post(
+            f"/api/world/location/{location}/chat",
+            {"session_id": session_id, "message": message, "display_name": display_name},
+            timeout=30.0,
+        )
+        return resp.json()
+
+    async def ensure_world_node(
+        self,
+        name: str,
+        node_type: str = "location",
+        metadata: dict | None = None,
+    ) -> None:
+        """Idempotently inject a named entity as a WorldNode. Used by the doula for place injection."""
+        await self._post(
+            "/api/world/graph/ensure_node",
+            {"name": name, "node_type": node_type, "metadata": metadata or {}},
+            timeout=30.0,
+        )
+
+    # ------------------------------------------------------------------
+    # Real-world grounding + map movement
+    # ------------------------------------------------------------------
+
+    async def get_place_names(self) -> set[str]:
+        """Return all canonical city-pack place names (locations + landmarks).
+
+        Used by the doula to classify candidates as static entities. Returns
+        a set of lowercase names for fast fuzzy-matching. Returns empty set
+        on failure — callers must handle gracefully.
+        """
+        try:
+            resp = await self._get("/api/world/place-names", timeout=10.0)
+            data = resp.json()
+            return {entry["name"] for entry in data.get("place_names", [])}
+        except Exception as e:
+            logger.debug("[place-names] fetch failed: %s", e)
+            return set()
+
+    async def get_neighborhood_vitality(self, hours: int = 6) -> dict[str, dict]:
+        """Return neighborhood vitality rows keyed by neighborhood name."""
+        try:
+            resp = await self._get("/api/world/vitality/neighborhoods", params={"hours": hours}, timeout=10.0)
+            data = resp.json()
+            rows = data.get("neighborhoods", [])
+            if not isinstance(rows, list):
+                return {}
+            result: dict[str, dict] = {}
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                name = str(row.get("name") or "").strip()
+                if name:
+                    result[name] = row
+            return result
+        except Exception as e:
+            logger.debug("[neighborhood-vitality] fetch failed: %s", e)
+            return {}
+
+    async def get_news(self) -> list[str]:
+        """
+        Fetch recent SF/Bay Area news headlines from the grounding endpoint.
+        Returns a list of headline strings (empty list on failure).
+        Cached server-side for 1 hour — safe to call every ground loop cycle.
+        """
+        try:
+            resp = await self._get("/api/world/grounding/news", timeout=8.0)
+            return [item["title"] for item in resp.json().get("headlines", [])]
+        except Exception as e:
+            logger.debug("[news] fetch failed: %s", e)
+            return []
+
+    # ------------------------------------------------------------------
+    # Doula polls — backend-tracked classification votes
+    # ------------------------------------------------------------------
+
+    async def create_doula_poll(
+        self,
+        candidate_name: str,
+        context_lines: list[str],
+        entry_location: str | None,
+        entity_class: str,
+        weight: float,
+        voters: list[str],
+        expires_in_seconds: int = 7200,
+    ) -> str:
+        """Create a poll on the backend. Returns the poll_id."""
+        resp = await self._post(
+            "/api/world/doula/polls",
+            {
+                "candidate_name": candidate_name,
+                "context_lines": context_lines,
+                "entry_location": entry_location,
+                "entity_class": entity_class,
+                "weight": weight,
+                "voters": voters,
+                "expires_in_seconds": expires_in_seconds,
+            },
+        )
+        return resp.json()["poll_id"]
+
+    async def get_doula_polls(self) -> list[dict]:
+        """Fetch all open (unresolved, unexpired) polls."""
+        try:
+            resp = await self._get("/api/world/doula/polls", timeout=10.0)
+            return resp.json().get("polls", [])
+        except Exception as e:
+            logger.debug("[doula-polls] fetch failed: %s", e)
+            return []
+
+    async def cast_doula_vote(
+        self, poll_id: str, voter_session_id: str, vote: str
+    ) -> None:
+        """Cast a vote on a poll. vote must be 'AGENT' or 'STATIC'."""
+        await self._post(
+            f"/api/world/doula/polls/{poll_id}/vote",
+            {"voter_session_id": voter_session_id, "vote": vote},
+        )
+
+    async def resolve_doula_poll(self, poll_id: str) -> dict:
+        """Resolve a poll and return the outcome dict."""
+        resp = await self._post(f"/api/world/doula/polls/{poll_id}/resolve", {})
+        return resp.json()
+
+    async def get_grounding(self) -> dict:
+        """
+        Fetch current SF time + weather from the worldweaver grounding endpoint.
+        Keys: datetime_str, day_of_week, time_of_day, season, hour, month,
+              weather, temperature_f, weather_description
+        Returns empty dict on failure — callers must handle gracefully.
+        """
+        try:
+            resp = await self._get("/api/world/grounding", timeout=8.0)
+            return resp.json()
+        except Exception as e:
+            logger.debug("[grounding] fetch failed: %s", e)
+            return {}
+
+    async def post_map_move(self, session_id: str, destination: str) -> dict:
+        """
+        Move one hop toward destination along the city graph.
+        Bypasses NL movement detection — explicit map route.
+        Returns: {moved, from_location, to_location, route, route_remaining, narrative}
+        """
+        resp = await self._post(
+            "/api/game/move",
+            {"session_id": session_id, "destination": destination},
+            timeout=30.0,
+        )
+        return resp.json()
+
+    # City map — grounded geography for slow loop context
+    # ------------------------------------------------------------------
+
+    async def get_location_map_context(self, session_id: str, location: str) -> str:
+        """
+        Fetch compressed prose geography context for a location.
+        Returns a short text block (neighborhood, adjacency, transit, landmarks)
+        suitable for injection into the slow loop prompt.
+        Returns empty string if no city pack is available.
+        """
+        try:
+            resp = await self._get_with_retry(
+                f"/api/world/map/{session_id}/context",
+                params={"location": location},
+                timeout=10.0,
+            )
+            data = resp.json()
+            return data.get("context", "")
+        except Exception as e:
+            logger.debug("[map] context fetch failed for %s: %s", location, e)
+            return ""
+
+    async def get_nearby_landmarks(self, location: str, radius_km: float = 0.75) -> list[str]:
+        """Return nearby landmark names for a neighborhood anchor."""
+        try:
+            resp = await self._get(
+                "/api/world/landmarks/nearby",
+                params={"location": location, "radius_km": radius_km},
+                timeout=10.0,
+            )
+            data = resp.json()
+            rows = data.get("landmarks", [])
+            if not isinstance(rows, list):
+                return []
+            names: list[str] = []
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                name = str(row.get("name") or "").strip()
+                if name:
+                    names.append(name)
+            return names
+        except Exception as e:
+            logger.debug("[landmarks] nearby fetch failed for %s: %s", location, e)
+            return []
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    async def _get(self, path: str, *, params: dict | None = None, timeout: float = 30.0) -> httpx.Response:
+        try:
+            resp = await self._client.get(path, params=params, timeout=timeout)
+            resp.raise_for_status()
+            return resp
+        except httpx.HTTPStatusError as e:
+            raise WorldClientError(f"GET {path} returned {e.response.status_code}") from e
+
+    async def _get_with_retry(
+        self, path: str, *, params: dict | None = None, timeout: float = 30.0, max_retries: int = 2
+    ) -> httpx.Response:
+        retryable = {429, 500, 502, 503}
+        last_error: Exception | None = None
+
+        for attempt in range(max_retries + 1):
+            try:
+                resp = await self._client.get(path, params=params, timeout=timeout)
+                if resp.status_code in retryable:
+                    delay = 2 ** attempt
+                    logger.warning("world GET %s: HTTP %s, retrying in %ss", path, resp.status_code, delay)
+                    await asyncio.sleep(delay)
+                    last_error = WorldClientError(f"HTTP {resp.status_code}")
+                    continue
+                resp.raise_for_status()
+                return resp
+            except httpx.TimeoutException as e:
+                last_error = WorldClientError(f"GET {path} timed out")
+                if attempt < max_retries:
+                    await asyncio.sleep(2 ** attempt)
+                    continue
+
+        raise last_error or WorldClientError(f"GET {path} failed")
+
+    async def _post(self, path: str, payload: dict, *, timeout: float = 60.0) -> httpx.Response:
+        try:
+            resp = await self._client.post(path, json=payload, timeout=timeout)
+            resp.raise_for_status()
+            return resp
+        except httpx.HTTPStatusError as e:
+            raise WorldClientError(
+                f"POST {path} returned {e.response.status_code}: {e.response.text[:200]}"
+            ) from e
+
+    async def leave_session(self, session_id: str) -> dict:
+        """Tell the shard the resident is departing (best-effort presence deregistration).
+        Used when a familiar travels home or to another city; failure is non-fatal."""
+        try:
+            resp = await self._post("/api/session/leave", {"session_id": session_id}, timeout=15.0)
+            return resp.json()
+        except Exception as e:
+            logger.debug("[leave] session %s leave failed: %s", session_id, e)
+            return {}
+
+    async def close(self) -> None:
+        await self._client.aclose()
+
+    async def __aenter__(self) -> CityClient:
+        return self
+
+    async def __aexit__(self, *_: Any) -> None:
+        await self.close()
+
+
+def _agent_key_from_session_id(session_id: str) -> str | None:
+    match = _AGENT_SLUG_RE.match(str(session_id or "").strip())
+    if not match:
+        return None
+    return match.group(1)

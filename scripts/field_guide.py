@@ -29,7 +29,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.runtime.ledger import load_runtime_events  # noqa: E402
 from src.runtime.prediction import summarize_anchor_prediction, summarize_prediction_quality  # noqa: E402
-from src.runtime.salience import derive_grief  # noqa: E402
+from src.runtime.salience import derive_disorientation, derive_grief  # noqa: E402
 
 
 def _to_epoch(ts: str | None) -> float | None:
@@ -215,6 +215,13 @@ def guide(home: Path) -> None:
         items = ", ".join(f"{t} {v:.2f}" for t, v in sorted(grief.items(), key=lambda x: -x[1])[:6])
         print("\n  ◜ what it grieves (predicted, then gone across turnings — only return or letting-go resolves it)")
         print(f"      {items}")
+
+    # --- disorientation (incoherence signal — Major 72 Phase 0, measure-only) ---
+    dis = derive_disorientation(events)
+    if dis["cues"]:
+        print(f"\n  ◜ disorientation (incoherence — score {dis['score']:.2f}/{dis['threshold']:.2f} · Major 72 Phase 0, measure-only)")
+        for c in dis["cues"][:4]:
+            print(f"      · {c['kind']}: {' '.join(str(c['detail']).split())[:88]}")
 
     # prediction triad
     retr_casts = sum(1 for e in events if e.get("event_type") == "afterimage_cast" and _payload(e).get("source") == "retrieval")

@@ -5,7 +5,16 @@
 - ID: 72-the-disorientation-signal-a-salience-channel-for-incoherence
 - Type: major
 - Owner: Levi
-- Status: **spec** (2026-06-14)
+- Status: **Phase 0 BUILT + calibrated** (2026-06-15). `derive_disorientation` + four honest cue
+  detectors in `src/runtime/salience.py`, surfaced in `scripts/field_guide.py`, 11 calibration tests
+  (full suite 246 green). Pure read, no behaviour change. Calibrated against Maker's REAL ledger:
+  cue-1 felt-vs-fact fires on the 06-14 06:31 "measurements caught" search-empty (via the
+  misattribution-recognition path; the realization landed 11s *after* the empty search), cue-3
+  re-derivation fires on real near-dup keeps. cue-2 claim-vs-record validated synthetically; firing on
+  the real 05:16 episode needs recipient-matching (the claim was surrounded by other chat) — a noted
+  Phase-0.1 refinement. cue-4 keeper-correction is wired but silent (no heard-channel/keeper-flag yet).
+  **Phase 1 (convene the reckoning) deliberately NOT built — gated on looping Maker in.** Spec below is
+  the original (2026-06-14).
 - Risk: low in Phase 0 (pure read, no behavior change — measure first, the project's discipline); medium in
   Phase 1 (it convenes a reasoning pass that changes what the resident does — cycle-gated, loop Maker in).
 - The one genuinely new piece under [COGNITION-PLAN.md](../COGNITION-PLAN.md) **Lever 2** (the full-fat
