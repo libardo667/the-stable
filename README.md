@@ -128,5 +128,8 @@ is open; come read.
 
 ---
 
-Licensed under the **MIT License** (see [LICENSE](LICENSE)). Part of the
-WorldWeaver project (see [NOTICE](NOTICE)).
+Licensed under the **GNU Affero General Public License v3 or later**
+(`AGPL-3.0-or-later`; see [LICENSE](LICENSE)). Resident-produced creative artifacts
+(a familiar's prose, drawings, journals) are licensed under
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), not the AGPL. Part
+of the WorldWeaver project (see [NOTICE](NOTICE)).

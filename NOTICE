@@ -1,8 +1,23 @@
 WorldWeaver — the familiars
+Copyright (C) 2026 Levi Banks
 
-This work is part of the WorldWeaver project and is released under the MIT
-License — see the LICENSE file for the full text and copyright.
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version. See the LICENSE file for the full text.
 
 The familiars — the salience substrate, the predictive pulse, grief, the drive
-vector, anchors, the growth pipeline, and the familiar embodiment — were
-developed within WorldWeaver and carry that same MIT license.
+vector, anchors, the growth pipeline, and the familiar embodiment — are part of
+the WorldWeaver project and carry this same AGPL-3.0-or-later license.
+
+--------------------------------------------------------------------------------
+Relicensing record
+--------------------------------------------------------------------------------
+This project was previously distributed under the MIT License. Versions released
+before the AGPL relicense (2026-06-16) remain available under MIT for those
+snapshots; that grant is not revoked. From the relicense onward, the project is
+licensed under AGPL-3.0-or-later.
+
+Resident-produced creative artifacts (a familiar's prose, drawings, journals) are
+creative works, not software, and are licensed under Creative Commons
+Attribution-ShareAlike 4.0 (CC BY-SA 4.0), not the AGPL.
