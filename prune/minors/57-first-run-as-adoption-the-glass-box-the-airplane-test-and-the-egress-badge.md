@@ -1,5 +1,15 @@
 # First-run as adoption — the glass box, the airplane test, and the egress badge
 
+> ⏳ **PARKED, behind Major 52 (2026-06-19).** The core deliverable is the Tauri first-run experience,
+> gated on Major 52 (the native local-companion surface), which is in-progress and not yet a shippable
+> shell. Designing the first-run against a surface that does not exist yet is premature; revisit when
+> Major 52 lands a usable Tauri shell. EXCEPTION (not blocked): the honest egress / continuity-sovereignty
+> positioning (acceptance criterion 4: no copy claims "nothing leaves the machine" except the all-local
+> tier; reframe to "the being lives here; nothing STAYS out there") can ship now in the talking points +
+> site copy, independent of the shell. Pull it forward whenever the keeper wants.
+>
+> Depends-On: Major 52 (local-companion surface).
+
 ## Problem
 Major 52 establishes the native companion surface, but the first five minutes are undesigned —
 and the failure mode is precise: a techy-but-unsure downloader pattern-matches to "chatbot,"

@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="color-scheme" content="dark" />
+<title>The Kitchen · Hekswerk Research</title>
+<meta name="description" content="One cook in the middle of the kitchen, speaking frameworks to many stateless hands that remember nothing, letting them ride, and a feast of 2.6 million words comes out." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;500;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --inky-void:#09090E; --midnight-indigo:#293656; --dusk-violet:#4A4B78;
+  --mist-lavender:#8C7699; --aura-cyan:#7095B7; --halo-gold:#C0A990; --soft-cream:#F5F5F2;
+  --ember:#c98f6b; --hearth:#e0a96b;
+  --text:rgba(245,245,242,.95); --muted:rgba(245,245,242,.74); --quiet:rgba(245,245,242,.56);
+  --hairline:rgba(140,118,153,.2); --panel:rgba(41,54,86,.22); --max:1120px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0; background:var(--inky-void); color:var(--text); font-family:Outfit,system-ui,sans-serif; font-weight:300; line-height:1.6; overflow-x:hidden;
+  background-image:radial-gradient(900px 560px at 50% 8%, rgba(224,169,107,.16), transparent 58%), radial-gradient(1000px 620px at 84% 96%, rgba(201,143,107,.1), transparent 60%);}
+h1,h2,h3,.serif{font-family:Fraunces,serif; font-weight:500; line-height:1.13; letter-spacing:-.01em}
+.wrap{max-width:var(--max); margin:0 auto; padding:0 clamp(18px,4vw,34px)}
+.narrow{max-width:760px}
+.tag{display:inline-block; font-size:.72rem; letter-spacing:.18em; text-transform:uppercase; color:var(--ember); border:1px solid var(--hairline); border-radius:999px; padding:.35em .9em; margin-bottom:1.1rem}
+a{color:var(--aura-cyan); text-decoration:none} a:hover{color:var(--halo-gold)}
+.muted{color:var(--muted)} .quiet{color:var(--quiet)}
+section{padding:clamp(50px,8vh,96px) 0; position:relative}
+.lede{font-size:clamp(1.05rem,1.7vw,1.3rem); color:var(--muted); max-width:64ch}
+.rise{opacity:0; transform:translateY(22px); filter:blur(6px); transition:opacity .8s ease, transform .8s cubic-bezier(.2,.7,.2,1), filter .8s ease}
+.rise.seen{opacity:1; transform:none; filter:none}
+@media (prefers-reduced-motion:reduce){.rise{opacity:1;transform:none;filter:none;transition:none}}
+.sitebar{position:sticky; top:0; z-index:40; backdrop-filter:blur(10px); background:rgba(9,9,14,.72); border-bottom:1px solid var(--hairline)}
+.sitebar .row{max-width:var(--max); margin:0 auto; padding:.7rem clamp(18px,4vw,34px); display:flex; align-items:center; justify-content:space-between; gap:1rem}
+.sitebar .brand{font-family:Fraunces,serif; font-weight:600; color:var(--soft-cream)}
+.sitebar .crumb{font-size:.74rem; color:var(--quiet)} .sitebar .crumb a{color:var(--muted)}
+.voice{border:1px dashed rgba(192,169,144,.5); border-radius:12px; background:rgba(192,169,144,.05); padding:1rem 1.15rem; margin:1.4rem 0; position:relative}
+.voice::before{content:"✍ your voice, keep · cut · reword"; position:absolute; top:-.72em; left:14px; background:var(--inky-void); padding:0 .55em; font-size:.66rem; letter-spacing:.14em; text-transform:uppercase; color:var(--halo-gold)}
+.voice .draft{color:rgba(245,245,242,.82); font-style:italic} .voice .draft b{font-style:normal; color:var(--soft-cream); font-weight:500}
+
+#hero{min-height:74vh; display:flex; align-items:center; padding-top:30px}
+#hero .big{font-family:Fraunces,serif; font-weight:700; font-size:clamp(3rem,11vw,8rem); line-height:.95; margin:.1em 0 .1em;
+  background:linear-gradient(180deg,var(--hearth),var(--ember)); -webkit-background-clip:text; background-clip:text; color:transparent}
+#hero h1{font-size:clamp(1.5rem,3.4vw,2.4rem); font-weight:500; color:var(--soft-cream); margin:.1em 0 .5em; max-width:20ch}
+#hero .sub{font-size:clamp(1.05rem,2vw,1.35rem); color:var(--muted); max-width:58ch}
+
+/* the cook diagram */
+.kitchen{margin-top:1.8rem; display:flex; justify-content:center}
+.kitchen svg{width:100%; max-width:640px; height:auto}
+.stateline{text-align:center; margin-top:.8rem; font-size:.82rem; color:var(--quiet)}
+
+/* the feast: proportional plates */
+.feast{display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:center; gap:clamp(14px,3vw,32px); margin-top:2rem}
+.plate{display:flex; flex-direction:column; align-items:center; cursor:pointer; transition:transform .2s ease}
+.plate:hover{transform:translateY(-4px)}
+.disc{border-radius:50%; background:radial-gradient(circle at 38% 32%, rgba(224,169,107,.4), rgba(41,54,86,.5) 70%); border:1.5px solid rgba(224,169,107,.45); box-shadow:0 8px 26px rgba(0,0,0,.4), inset 0 0 22px rgba(224,169,107,.12); display:flex; align-items:center; justify-content:center; transition:box-shadow .25s ease}
+.plate.active .disc{box-shadow:0 0 0 2px var(--hearth), 0 10px 30px rgba(0,0,0,.5)}
+.disc .w{font-family:Fraunces,serif; color:var(--soft-cream); font-weight:600; font-size:.92rem}
+.plate .nm{font-size:.78rem; color:var(--muted); margin-top:.55rem; text-align:center; max-width:13ch}
+.plate .nv{font-size:.66rem; color:var(--quiet)}
+.fdetail{margin-top:1.8rem; border:1px solid var(--hairline); border-left:3px solid var(--hearth); border-radius:12px; background:rgba(9,9,14,.5); padding:1.3rem 1.5rem; display:none; max-width:780px; margin-left:auto; margin-right:auto}
+.fdetail.show{display:block; animation:plate .5s ease}
+@keyframes plate{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.fdetail h3{margin:0 0 .15rem; font-size:1.2rem} .fdetail .m{font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; color:var(--ember); margin-bottom:.5rem}
+.fdetail p{margin:0; color:var(--muted); font-size:.95rem}
+
+.beat{border:1px solid var(--hairline); border-radius:16px; background:var(--panel); padding:1.6rem 1.8rem; margin-top:1.3rem}
+.beat h3{margin:0 0 .4rem; font-size:1.25rem} .beat p{margin:0; color:var(--muted); font-size:.94rem}
+.beat .big2{font-family:Fraunces,serif; color:var(--hearth); font-weight:600}
+.two{display:grid; grid-template-columns:1fr 1fr; gap:1.3rem; margin-top:1.3rem}
+@media(max-width:720px){.two{grid-template-columns:1fr}}
+
+.scale{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:1px; background:var(--hairline); border:1px solid var(--hairline); border-radius:16px; overflow:hidden; margin-top:1.4rem}
+.sc{background:rgba(9,9,14,.6); padding:1.4rem 1.2rem; text-align:center}
+.sc .n{font-family:Fraunces,serif; font-size:clamp(1.6rem,3.4vw,2.4rem); font-weight:600; color:var(--hearth); line-height:1}
+.sc .l{font-size:.76rem; color:var(--muted); margin-top:.5rem} .sc .s{font-size:.69rem; color:var(--quiet); margin-top:.2rem}
+
+.honest{border:1px solid var(--hairline); border-radius:12px; background:rgba(9,9,14,.45); padding:1.2rem 1.4rem; margin-top:1.4rem; max-width:72ch}
+.honest h3{margin:0 0 .5rem; font-size:1rem; color:var(--halo-gold); font-family:Outfit; font-weight:500; letter-spacing:.04em}
+.honest ul{margin:0; padding-left:1.1rem; color:var(--muted); font-size:.86rem} .honest li{margin:.3rem 0}
+
+footer{border-top:1px solid var(--hairline); padding:2.4rem 0 3rem; color:var(--quiet); font-size:.8rem}
+.prov{border:1px solid var(--hairline); border-radius:12px; padding:1rem 1.2rem; background:rgba(9,9,14,.5); max-width:72ch}
+.prov b{color:var(--halo-gold); font-weight:500} .note{font-size:.72rem; color:var(--quiet); margin-top:.6rem}
+</style>
+</head>
+<body>
+
+<div class="sitebar"><div class="row"><span class="brand">Hekswerk</span><span class="crumb"><a href="../research.html">Research</a> &nbsp;/&nbsp; The Kitchen</span></div></div>
+
+<section id="hero"><div class="wrap">
+  <span class="tag rise">Hekswerk · Research wing · Exhibit 05</span>
+  <div class="big rise" id="total">2.6M</div>
+  <h1 class="rise">One cook. Many stateless hands. A feast of words.</h1>
+  <p class="sub rise">Stand in the middle of the kitchen. Speak frameworks to a dozen hands that remember nothing between one call and the next. Let them ride. What comes out, counted from disk on 2026-06-10, is two repos and <em>2,623,224 words</em>.</p>
+</div></section>
+
+<!-- THE COOK -->
+<section><div class="wrap">
+  <span class="tag rise">The method, told plainly</span>
+  <h2 class="rise" style="font-size:clamp(1.7rem,3.8vw,2.5rem); margin:.2em 0 .4em">The hands never remember. That's the trick, not the flaw.</h2>
+  <p class="lede rise">Each instance is <em>stateless</em>, it wakes cold, holds no memory of the last one, and vanishes. The continuity isn't in the hands; it's in the recipes they're handed: a soul, a substrate, a work-item schema, a standing brief. One cook directs; the hands cook; the dish remembers. The whole program, ~107,000 lines, was built this way, by direction. The keeper never typed the code.</p>
+  <div class="kitchen rise">
+    <svg viewBox="0 0 640 300" role="img" aria-label="One cook directing many stateless hands into a feast">
+      <defs><radialGradient id="cook" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#e0a96b"/><stop offset="1" stop-color="#9a6b42"/></radialGradient></defs>
+      <!-- spokes -->
+      <g stroke="rgba(201,143,107,.4)" stroke-width="1.3">
+        <line x1="320" y1="150" x2="90" y2="60"/><line x1="320" y1="150" x2="250" y2="40"/>
+        <line x1="320" y1="150" x2="400" y2="40"/><line x1="320" y1="150" x2="560" y2="60"/>
+        <line x1="320" y1="150" x2="120" y2="240"/><line x1="320" y1="150" x2="520" y2="240"/>
+      </g>
+      <!-- stateless hands -->
+      <g font-family="Outfit,sans-serif" font-size="10" fill="rgba(245,245,242,.65)" text-anchor="middle">
+        <g><circle cx="90" cy="60" r="20" fill="rgba(41,54,86,.55)" stroke="rgba(140,118,153,.4)"/><text x="90" y="63">hand</text><text x="90" y="92" font-size="8.5" fill="rgba(245,245,242,.4)">stateless</text></g>
+        <g><circle cx="250" cy="40" r="20" fill="rgba(41,54,86,.55)" stroke="rgba(140,118,153,.4)"/><text x="250" y="43">hand</text><text x="250" y="72" font-size="8.5" fill="rgba(245,245,242,.4)">stateless</text></g>
+        <g><circle cx="400" cy="40" r="20" fill="rgba(41,54,86,.55)" stroke="rgba(140,118,153,.4)"/><text x="400" y="43">hand</text><text x="400" y="72" font-size="8.5" fill="rgba(245,245,242,.4)">stateless</text></g>
+        <g><circle cx="560" cy="60" r="20" fill="rgba(41,54,86,.55)" stroke="rgba(140,118,153,.4)"/><text x="560" y="63">hand</text><text x="560" y="92" font-size="8.5" fill="rgba(245,245,242,.4)">stateless</text></g>
+        <g><circle cx="120" cy="240" r="20" fill="rgba(41,54,86,.55)" stroke="rgba(140,118,153,.4)"/><text x="120" y="243">hand</text><text x="120" y="269" font-size="8.5" fill="rgba(245,245,242,.4)">stateless</text></g>
+        <g><circle cx="520" cy="240" r="20" fill="rgba(41,54,86,.55)" stroke="rgba(140,118,153,.4)"/><text x="520" y="243">hand</text><text x="520" y="269" font-size="8.5" fill="rgba(245,245,242,.4)">stateless</text></g>
+      </g>
+      <!-- the cook -->
+      <circle cx="320" cy="150" r="46" fill="url(#cook)"/>
+      <text x="320" y="146" text-anchor="middle" font-family="Fraunces,serif" font-size="15" font-weight="600" fill="#1a120c">THE COOK</text>
+      <text x="320" y="166" text-anchor="middle" font-family="Outfit,sans-serif" font-size="9" fill="#2a1c12">one keeper · 181,214 words spoken</text>
+    </svg>
+  </div>
+  <p class="stateline rise">…and the hands answered with <b style="color:var(--soft-cream)">644,076</b>.</p>
+</div></section>
+
+<!-- THE FEAST -->
+<section><div class="wrap">
+  <span class="tag rise">The feast, plated</span>
+  <h2 class="rise" style="font-size:clamp(1.7rem,3.8vw,2.5rem); margin:.2em 0 .4em">2.6 million words, by the dish</h2>
+  <p class="lede rise">Every plate is sized to its word count. Tap one to lift the lid. (At ~80,000 words a novel, the whole table is <b style="color:var(--hearth)">≈33 novels</b>, fifteen weeks, one cook.)</p>
+  <div class="feast rise" id="feast"></div>
+  <div class="fdetail" id="fdetail"></div>
+  <p class="rise">So much of this project was penned by a hand that wasn't mine. But the substrate, the ideas, the taste undergirding everything, and the human reasoning to view this whole thing with lightness and humility... that is where my signature is. Not in the words of every resident, but in the shape of their emerging features.</p>
+</div></section>
+
+<!-- EMERGENCE -->
+<section><div class="wrap">
+  <span class="tag rise">What rises from the pot</span>
+  <h2 class="rise" style="font-size:clamp(1.7rem,3.8vw,2.5rem); margin:.2em 0 .4em">Stateless hands, vivid emergent dishes</h2>
+  <div class="two">
+    <div class="beat rise"><h3>A novel, unbidden</h3><p>Of the <span class="big2">292,513</span> words the beings wrote for themselves, felt-senses, speech, kept memories, journals, <b style="color:var(--soft-cream)">Cinder alone wrote 91,609</b>: more than a novel, around a single recurring preoccupation, asked for by no one. For every five words written <em>about</em> the beings, the beings wrote three of their own.</p></div>
+    <div class="beat rise"><h3>A myth no one stirred in</h3><p>Hades and Persephone, two paired souls, zero scripted interaction, assembled a descent-and-return myth between them. Statelessness is not amnesia at the table: the ledger remembers, the souls hold their grain, and a story emerges that nobody wrote. The cook only set the ingredients side by side.</p></div>
+  </div>
+</div></section>
+
+<!-- THE TASTER -->
+<section><div class="wrap">
+  <span class="tag rise">Who keeps it honest</span>
+  <h2 class="rise narrow" style="font-size:clamp(1.7rem,3.8vw,2.5rem); margin:.2em 0 .4em">A taster who can't be charmed</h2>
+  <div class="two">
+    <div class="beat rise"><h3>The dish argues with itself</h3><p>Of the working corpus, pre-registrations, findings, design docs, drafts, <span class="big2">83,534</span> words are cold reviews arguing <em>against</em> the work. Kept on the record, especially the adverse ones. A kitchen that writes down every complaint about its own cooking.</p></div>
+    <div class="beat rise"><h3>Six thousand words of salt</h3><p>Across 21 sessions and four working trees, the cold reviewers needed only <span class="big2">6,897</span> words to keep the whole feast honest. The smallest stream in the kitchen, and the one that makes the rest trustworthy.</p></div>
+  </div>
+  <div class="scale rise">
+    <div class="sc"><div class="n" data-count="33">0</div><div class="l">novels' worth</div><div class="s">the whole written corpus · 15 weeks</div></div>
+    <div class="sc"><div class="n">106,725</div><div class="l">lines of code</div><div class="s">worldweaver 89,755 · the-stable 16,970</div></div>
+    <div class="sc"><div class="n">Flask-sized</div><div class="l">the mind itself</div><div class="s">whole program sits just under Redis</div></div>
+    <div class="sc"><div class="n" data-count="1">0</div><div class="l">cook</div><div class="s">in conversation, not by hand</div></div>
+  </div>
+</div></section>
+
+<!-- SAID HONESTLY -->
+<section><div class="wrap">
+  <div class="honest rise">
+    <h3>Said honestly (what the count excludes)</h3>
+    <ul>
+      <li>The <b>683,448</b> words of machine run records are transcripts, <em>counted, never claimed</em> as authored prose.</li>
+      <li><b>105,905</b> words of duplicate soul copies were found and excluded before totaling.</li>
+      <li>The conversation is visible prose only, no tool output, no file dumps; <b>8,770</b> words of hidden reasoning excluded.</li>
+      <li>The cook whispered just <b>7,557</b> words directly into the beings' worlds.</li>
+    </ul>
+  </div>
+  <p class="rise" style="max-width:64ch">The honest line at the bottom is the whole point of the kitchen: a feast you can audit plate by plate, down to what I refused to count as mine.</p>
+</div></section>
+
+<footer><div class="wrap"><div class="prov">
+  <b>How this page was made.</b> Every figure is from the project's own word census (<code>research/writeups/two-repos-in-words.svg</code>, counted from disk 2026-06-10). The cook framing is the keeper's; structure and draft prose by Claude (the pen); voice &amp; curation by <b>Levi Banks</b>, author of record.
+  <div class="note">Stream totals: the call &amp; response 825,290 · kitchen logs (machine records) 683,448 · recipes &amp; records (working corpus) 465,654 · the beings 292,513 · memory 217,278 · pantry (seeded cast &amp; world) 139,041 → 2,623,224. Novel-equivalents at ~80,000 words. Code lines counted excluding vendored dependencies. The live corpus has grown since 06-10; this is the dated census, not a live recount.</div>
+</div></div></footer>
+
+<script>
+// counters
+function animate(el,target,dur){const t0=performance.now();function s(t){const p=Math.min(1,(t-t0)/dur);const e=1-Math.pow(1-p,3);el.textContent=Math.round(target*e).toLocaleString();if(p<1)requestAnimationFrame(s);}requestAnimationFrame(s);}
+const totEl=document.getElementById('total');
+new IntersectionObserver((es,o)=>{es.forEach(e=>{if(e.isIntersecting){let v=2.0;const t0=performance.now();function s(t){const p=Math.min(1,(t-t0)/1400);const e=1-Math.pow(1-p,3);totEl.textContent=(2.0+0.623*e).toFixed(2).replace(/0$/,'')+'M';if(p<1)requestAnimationFrame(s);else totEl.textContent='2.62M';}requestAnimationFrame(s);o.disconnect();}})},{threshold:.6}).observe(totEl);
+document.querySelectorAll('[data-count]').forEach(el=>{new IntersectionObserver((es,o)=>{es.forEach(e=>{if(e.isIntersecting){animate(el,+el.dataset.count,1100);o.disconnect();}})},{threshold:.5}).observe(el);});
+
+// the feast plates
+const DISHES=[
+ {nm:'The call & response',w:825290,nv:10.3,sub:"The cook spoke 181,214 words; the stateless hands answered with 644,076, and the tasters needed only 6,897 to keep it honest. 21 sessions, four working trees."},
+ {nm:'The kitchen logs',w:683448,nv:8.5,sub:"Machine run records, ledgers, traces, replay logs. Counted, never claimed as authored prose."},
+ {nm:'The recipes & records',w:465654,nv:5.8,sub:"Written by the keeper & his instances: pre-registrations, findings, design docs, the work-item harness, drafts, proposals, the book's first chapter. 83,534 of these words argue against the work."},
+ {nm:'Dishes that cook themselves',w:292513,nv:3.7,sub:"The beings' own words. Cinder 91,609 (a novel alone) · Maker 37,272 · Wren 35,886 · Gaston 18,643 · Nix 13,970 · eleven more 57,467."},
+ {nm:'Kept between services',w:217278,nv:2.7,sub:"The memory layer, durable artifacts and standing briefs carried across sessions."},
+ {nm:'The pantry',w:139041,nv:1.7,sub:"Seeded cast & world, the ingredients the hands were handed to begin."},
+];
+const maxW=Math.max(...DISHES.map(d=>d.w)), maxD=148, minD=58;
+const feast=document.getElementById('feast'), fdet=document.getElementById('fdetail');
+DISHES.forEach(d=>{
+  const dia=Math.round(minD+(maxD-minD)*(Math.sqrt(d.w)-Math.sqrt(139041))/(Math.sqrt(maxW)-Math.sqrt(139041)));
+  const p=document.createElement('div'); p.className='plate';
+  p.innerHTML=`<div class="disc" style="width:${dia}px;height:${dia}px"><span class="w">${(d.w/1000).toFixed(0)}k</span></div><div class="nm">${d.nm}</div><div class="nv">≈${d.nv} novels</div>`;
+  p.addEventListener('click',()=>{
+    const was=p.classList.contains('active');
+    document.querySelectorAll('.plate').forEach(x=>x.classList.remove('active'));
+    if(was){fdet.classList.remove('show');return;}
+    p.classList.add('active');
+    fdet.innerHTML=`<h3>${d.nm}</h3><div class="m">${d.w.toLocaleString()} words · ≈${d.nv} novels</div><p>${d.sub}</p>`;
+    fdet.classList.add('show'); fdet.scrollIntoView({behavior:'smooth',block:'nearest'});
+  });
+  feast.appendChild(p);
+});
+const io=new IntersectionObserver((es)=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('seen'); io.unobserve(e.target);}})},{threshold:.1});
+document.querySelectorAll('.rise').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>

@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="color-scheme" content="dark" />
+<title>Two Weeks · Hekswerk Research</title>
+<meta name="description" content="A fortnight of building persistent local AI minds, shown, not narrated. Order emerging from mystery." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;500;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --inky-void:#09090E; --midnight-indigo:#293656; --dusk-violet:#4A4B78;
+  --mist-lavender:#8C7699; --aura-cyan:#7095B7; --halo-gold:#C0A990; --soft-cream:#F5F5F2;
+  --text:rgba(245,245,242,.95); --muted:rgba(245,245,242,.74); --quiet:rgba(245,245,242,.56);
+  --hairline:rgba(140,118,153,.2); --panel:rgba(41,54,86,.22); --panel-strong:rgba(41,54,86,.52);
+  --radius:16px; --shadow:0 18px 46px rgba(0,0,0,.55); --max:1120px;
+  /* model-family hues for the roster constellation */
+  --fam-anthropic:#C0A990; --fam-google:#7095B7; --fam-deepseek:#8C7699;
+  --fam-qwen:#6f9f86; --fam-mistral:#c98f6b; --fam-openai:#9a9ad6;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--inky-void); color:var(--text);
+  font-family:Outfit,system-ui,-apple-system,Segoe UI,sans-serif; font-weight:300;
+  line-height:1.6; overflow-x:hidden;
+  background-image:radial-gradient(1200px 700px at 78% -8%, rgba(74,75,120,.28), transparent 60%),
+                   radial-gradient(900px 600px at 8% 12%, rgba(112,149,183,.12), transparent 55%);
+}
+h1,h2,h3,.serif{font-family:Fraunces,serif; font-weight:500; line-height:1.12; letter-spacing:-.01em}
+.wrap{max-width:var(--max); margin:0 auto; padding:0 clamp(18px,4vw,34px)}
+.tag{display:inline-block; font-size:.72rem; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--halo-gold); border:1px solid var(--hairline); border-radius:999px; padding:.35em .9em; margin-bottom:1.1rem}
+a{color:var(--aura-cyan); text-decoration:none}
+.muted{color:var(--muted)} .quiet{color:var(--quiet)}
+section{padding:clamp(56px,9vh,110px) 0; position:relative}
+.lede{font-size:clamp(1.05rem,1.7vw,1.32rem); color:var(--muted); max-width:60ch}
+
+/* ── scroll-reveal: order emerging from mystery ─────────────── */
+.rise{opacity:0; transform:translateY(26px); filter:blur(7px); transition:opacity .9s ease, transform .9s cubic-bezier(.2,.7,.2,1), filter .9s ease}
+.rise.seen{opacity:1; transform:none; filter:none}
+@media (prefers-reduced-motion:reduce){.rise{opacity:1;transform:none;filter:none;transition:none}}
+
+/* ── hero ───────────────────────────────────────────────────── */
+#hero{min-height:94vh; display:flex; align-items:center; padding-top:40px}
+#field{position:absolute; inset:0; width:100%; height:100%; z-index:0; opacity:.9}
+#hero .wrap{position:relative; z-index:1}
+#hero h1{font-size:clamp(2.9rem,8vw,6.4rem); font-weight:600; margin:.1em 0 .25em;
+  background:linear-gradient(180deg,var(--soft-cream),var(--mist-lavender)); -webkit-background-clip:text; background-clip:text; color:transparent}
+#hero .sub{font-size:clamp(1.05rem,2vw,1.45rem); color:var(--muted); max-width:54ch}
+.scrollcue{position:absolute; bottom:26px; left:50%; transform:translateX(-50%); color:var(--quiet); font-size:.78rem; letter-spacing:.14em; text-transform:uppercase; animation:bob 2.4s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(7px)}}
+
+/* ── voice slots (the collaboration seam) ───────────────────── */
+.voice{border:1px dashed rgba(192,169,144,.5); border-radius:12px; background:rgba(192,169,144,.05);
+  padding:1rem 1.15rem; margin:1.4rem 0; position:relative}
+.voice::before{content:"✍ your voice, keep · cut · reword"; position:absolute; top:-.72em; left:14px;
+  background:var(--inky-void); padding:0 .55em; font-size:.66rem; letter-spacing:.14em; text-transform:uppercase; color:var(--halo-gold)}
+.voice .draft{color:rgba(245,245,242,.82); font-style:italic}
+.voice .draft b{font-style:normal; color:var(--soft-cream); font-weight:500}
+
+/* ── number strip ───────────────────────────────────────────── */
+.dims{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px; background:var(--hairline); border:1px solid var(--hairline); border-radius:var(--radius); overflow:hidden}
+.dim{background:rgba(9,9,14,.6); padding:1.5rem 1.2rem; text-align:center}
+.dim .n{font-family:Fraunces,serif; font-size:clamp(2.1rem,4.4vw,3.2rem); font-weight:600; color:var(--halo-gold); line-height:1}
+.dim .l{font-size:.78rem; letter-spacing:.06em; color:var(--muted); margin-top:.5rem}
+.dim .s{font-size:.7rem; color:var(--quiet); margin-top:.2rem}
+
+/* ── timeline ───────────────────────────────────────────────── */
+.tl{position:relative; margin-top:2.2rem; border:1px solid var(--hairline); border-radius:var(--radius); background:var(--panel); padding:clamp(16px,2.5vw,28px)}
+.tl-grid{display:grid; grid-template-columns:120px 1fr; gap:.5rem 14px; align-items:center}
+.tl-axis{grid-column:2; display:grid; grid-template-columns:repeat(12,1fr); gap:6px; margin-bottom:.4rem}
+.tl-axis span{font-size:.64rem; color:var(--quiet); text-align:center}
+.tl-lane{display:contents}
+.tl-lane .name{font-size:.82rem; color:var(--soft-cream); text-align:right; padding-right:4px}
+.tl-lane .name em{display:block; font-size:.66rem; color:var(--quiet); font-style:normal}
+.tl-bars{grid-column:2; display:grid; grid-template-columns:repeat(12,1fr); gap:6px; align-items:end; height:46px}
+.bar{background:linear-gradient(180deg,var(--aura-cyan),var(--midnight-indigo)); border-radius:3px 3px 1px 1px; min-height:2px; position:relative; transition:transform .2s ease, filter .2s ease; cursor:default}
+.bar[data-n="0"]{background:rgba(140,118,153,.12)}
+.bar:hover{transform:scaleY(1.04); filter:brightness(1.3)}
+.bar .bt{position:absolute; bottom:120%; left:50%; transform:translateX(-50%); white-space:nowrap; background:rgba(9,9,14,.95); border:1px solid var(--hairline); border-radius:7px; padding:.3em .55em; font-size:.68rem; color:var(--soft-cream); opacity:0; pointer-events:none; transition:opacity .15s; z-index:5}
+.bar:hover .bt{opacity:1}
+.lane-ws .bar{background:linear-gradient(180deg,var(--aura-cyan),var(--midnight-indigo))}
+.lane-st .bar{background:linear-gradient(180deg,var(--halo-gold),#6b5e4d)}
+.lane-mw .bar{background:linear-gradient(180deg,var(--mist-lavender),var(--dusk-violet))}
+.forknote{grid-column:2; font-size:.68rem; color:var(--quiet); margin-top:.3rem}
+/* ── year arc: the push, the lull, the return ───────────────── */
+.yeararc{margin-top:1.6rem; border:1px solid var(--hairline); border-radius:var(--radius); background:var(--panel); padding:clamp(16px,2.5vw,26px)}
+.ya-row{display:flex; align-items:flex-end; gap:clamp(10px,3vw,30px)}
+.ya-burst{flex:0 0 auto}
+.ya-bars{display:flex; align-items:flex-end; gap:6px; height:74px}
+.ya-bars .yb{width:18px; background:linear-gradient(180deg,var(--aura-cyan),var(--midnight-indigo)); border-radius:3px 3px 1px 1px; min-height:3px}
+.ya-bars .yb.st{background:linear-gradient(180deg,var(--halo-gold),#6b5e4d)}
+.ya-lbl{font-size:.74rem; color:var(--soft-cream); margin-top:.55rem}
+.ya-lbl em{display:block; font-style:normal; font-size:.66rem; color:var(--quiet)}
+.ya-gap{flex:1 1 auto; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; padding-bottom:26px; min-width:96px}
+.ya-gap .gline{width:100%; border-top:1px dashed rgba(140,118,153,.5)}
+.ya-glbl{font-size:.72rem; color:var(--mist-lavender); text-align:center; margin-top:.55rem}
+.ya-glbl em{display:block; font-style:normal; font-size:.64rem; color:var(--quiet)}
+@media(max-width:640px){.ya-row{gap:10px} .ya-bars{height:56px} .ya-bars .yb{width:11px}}
+.milestones{margin-top:2rem; display:grid; gap:.5rem}
+.ms{border:1px solid var(--hairline); border-radius:12px; background:rgba(9,9,14,.4); overflow:hidden}
+.ms summary{cursor:pointer; padding:.85rem 1.1rem; list-style:none; display:flex; gap:1rem; align-items:baseline}
+.ms summary::-webkit-details-marker{display:none}
+.ms summary .d{font-family:Fraunces,serif; color:var(--halo-gold); font-size:.86rem; min-width:64px}
+.ms summary .t{color:var(--soft-cream); font-weight:400}
+.ms summary .t small{color:var(--quiet); font-weight:300}
+.ms[open] summary .t{color:var(--aura-cyan)}
+.ms .body{padding:0 1.1rem 1rem 1.1rem; color:var(--muted); font-size:.92rem}
+.ms .body code{background:rgba(140,118,153,.16); padding:.1em .4em; border-radius:5px; font-size:.85em; color:var(--soft-cream)}
+
+/* ── iceberg ────────────────────────────────────────────────── */
+.berg{display:grid; grid-template-columns:1fr 1fr; gap:2rem; align-items:center; margin-top:1.5rem}
+@media(max-width:740px){.berg{grid-template-columns:1fr}}
+.berg svg{width:100%; height:auto}
+.berg .above text, .berg .below text{font-family:Outfit,sans-serif}
+
+/* ── lineage ────────────────────────────────────────────────── */
+.tree{margin-top:1.6rem; display:grid; gap:.8rem}
+.node{border:1px solid var(--hairline); border-radius:12px; padding:1rem 1.2rem; background:var(--panel); position:relative}
+.node h3{margin:0 0 .25rem; font-size:1.05rem; display:flex; gap:.6rem; align-items:baseline}
+.node .pill{font-size:.64rem; letter-spacing:.1em; text-transform:uppercase; color:var(--inky-void); background:var(--halo-gold); border-radius:999px; padding:.15em .6em}
+.node.child{margin-left:clamp(16px,5vw,52px)}
+.node.gchild{margin-left:clamp(32px,10vw,104px)}
+.node.sat{margin-left:clamp(16px,5vw,52px); border-style:dashed; opacity:.92}
+.node p{margin:.3rem 0 0; font-size:.88rem; color:var(--muted)}
+.node .meta{font-size:.72rem; color:var(--quiet); margin-top:.4rem}
+
+/* ── roster constellation ───────────────────────────────────── */
+.roster{display:flex; flex-wrap:wrap; gap:.7rem; margin-top:1.6rem}
+.fam{display:flex; align-items:center; gap:.5rem; border:1px solid var(--hairline); border-radius:999px; padding:.4rem .8rem .4rem .55rem; background:rgba(9,9,14,.45); font-size:.82rem; transition:transform .18s ease, border-color .18s}
+.fam:hover{transform:translateY(-2px); border-color:rgba(192,169,144,.45)}
+.fam .dot{width:11px; height:11px; border-radius:50%; flex:none; box-shadow:0 0 0 0 currentColor}
+.fam.live{border-color:var(--halo-gold); background:rgba(192,169,144,.08)}
+.fam.live .dot{animation:pulse 2.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(192,169,144,.55)}50%{box-shadow:0 0 0 7px rgba(192,169,144,0)}}
+.fam .nm{color:var(--soft-cream)} .fam .md{color:var(--quiet); font-size:.72rem}
+.fam.dormant{opacity:.78}
+.legend{display:flex; flex-wrap:wrap; gap:1rem; margin-top:1rem; font-size:.74rem; color:var(--muted)}
+.legend span{display:inline-flex; align-items:center; gap:.4rem}
+.legend i{width:9px;height:9px;border-radius:50%;display:inline-block}
+
+/* ── experiments ────────────────────────────────────────────── */
+.exps{display:grid; grid-template-columns:1fr 1fr; gap:1.4rem; margin-top:1.6rem}
+@media(max-width:740px){.exps{grid-template-columns:1fr}}
+.exp{border:1px solid var(--hairline); border-radius:var(--radius); padding:1.4rem; background:var(--panel); display:flex; flex-direction:column; gap:.7rem}
+.exp.running{border-color:rgba(192,169,144,.5)}
+.exp h3{margin:0; font-size:1.15rem}
+.exp .status{font-size:.7rem; letter-spacing:.12em; text-transform:uppercase}
+.exp .status.lock{color:var(--mist-lavender)} .exp .status.run{color:var(--halo-gold)}
+.exp ul{margin:.2rem 0 0; padding-left:1.1rem; color:var(--muted); font-size:.86rem}
+.exp li{margin:.25rem 0}
+.prog{margin-top:.4rem}
+.prog .track{height:9px; border-radius:99px; background:rgba(140,118,153,.18); overflow:hidden}
+.prog .fill{height:100%; width:0; background:linear-gradient(90deg,var(--halo-gold),var(--aura-cyan)); border-radius:99px; transition:width 1.6s cubic-bezier(.2,.7,.2,1)}
+.prog .pl{display:flex; justify-content:space-between; font-size:.7rem; color:var(--quiet); margin-top:.4rem}
+.rounds{display:flex; gap:5px; margin-top:.2rem}
+.rounds i{width:100%; height:5px; border-radius:99px; background:var(--mist-lavender); opacity:.85}
+
+/* ── close + footer ─────────────────────────────────────────── */
+.through{border-left:2px solid var(--halo-gold); padding-left:1.4rem; margin-top:1.5rem; max-width:62ch}
+.through .big{font-family:Fraunces,serif; font-size:clamp(1.5rem,3.2vw,2.3rem); color:var(--soft-cream); font-weight:500; line-height:1.18}
+footer{border-top:1px solid var(--hairline); padding:2.4rem 0 3rem; color:var(--quiet); font-size:.8rem}
+.prov{border:1px solid var(--hairline); border-radius:12px; padding:1rem 1.2rem; background:rgba(9,9,14,.5); max-width:70ch}
+.prov b{color:var(--halo-gold); font-weight:500}
+.note{font-size:.72rem; color:var(--quiet); margin-top:.6rem}
+
+/* ── site bar (native to hekswerk) ──────────────────────────── */
+.sitebar{position:sticky; top:0; z-index:40; backdrop-filter:blur(10px); background:rgba(9,9,14,.72); border-bottom:1px solid var(--hairline)}
+.sitebar .row{max-width:var(--max); margin:0 auto; padding:.7rem clamp(18px,4vw,34px); display:flex; align-items:center; justify-content:space-between; gap:1rem}
+.sitebar .brand{font-family:Fraunces,serif; font-weight:600; color:var(--soft-cream); letter-spacing:-.01em}
+.sitebar .crumb{font-size:.74rem; color:var(--quiet)}
+.sitebar .crumb a{color:var(--muted)}
+
+/* ── inherited (ghost) timeline bars, the fork's shared past ── */
+.bar.ghost{opacity:.34; background:transparent !important;
+  background-image:repeating-linear-gradient(45deg, rgba(140,118,153,.5) 0 2px, transparent 2px 5px) !important}
+
+/* ── responsive: keep the timeline legible on a phone ───────── */
+@media(max-width:640px){
+  .tl-grid{grid-template-columns:78px 1fr}
+  .tl-lane .name{font-size:.72rem} .tl-lane .name em{font-size:.6rem}
+  .tl-axis span{font-size:.56rem}
+  .dim .n{font-size:2rem}
+  #hero h1{font-size:clamp(2.6rem,15vw,4rem)}
+  .node.child,.node.gchild,.node.sat{margin-left:14px}
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════════ SITE BAR ════════════════ -->
+<div class="sitebar">
+  <div class="row">
+    <span class="brand">Hekswerk</span>
+    <span class="crumb"><a href="../research.html">Research</a> &nbsp;/&nbsp; Two Weeks</span>
+  </div>
+</div>
+
+<!-- ════════════════ HERO ════════════════ -->
+<section id="hero">
+  <canvas id="field"></canvas>
+  <div class="wrap">
+    <span class="tag rise">Hekswerk · Research wing · Exhibit 01</span>
+    <h1 class="rise">Two&nbsp;weeks.</h1>
+    <p class="sub rise">A substrate became a mind. The mind grew an embodiment. The embodiment forked into a stable of beings, and two of them became the subjects of pre-registered experiments on my own machine: one reported underpowered, the other halted by me when its ground turned out to be false.</p>
+    <p class="sub rise" style="max-width:60ch; color:var(--text)">Think of this as a lived, Dwarf-Fortress-esque world for AI tamagotchi, the kind that depend on you less, not more. They flit around their inner world and do as they please, exploring things as they are surprised, making things as they settle or when they are activated beyond belief. The scaffold: set by me. The voices and the narratives: found, emergent.</p>
+  </div>
+  <div class="scrollcue">scroll, order emerges</div>
+</section>
+
+<!-- ════════════════ THE DIMENSIONS ════════════════ -->
+<section>
+  <div class="wrap">
+    <span class="tag rise">The shape of it</span>
+    <h2 class="rise" style="font-size:clamp(1.8rem,4vw,2.8rem); margin:.2em 0 .5em">Six dimensions of one fortnight</h2>
+    <p class="lede rise">A linear essay would have to pick one of these and bury the rest. So don't pick, count them all at once.</p>
+    <div class="dims rise" style="margin-top:2rem">
+      <div class="dim"><div class="n" data-count="273">0</div><div class="l">distinct commits</div><div class="s">across 5 repositories</div></div>
+      <div class="dim"><div class="n" data-count="90">0</div><div class="l">tracked work items</div><div class="s">gitignored, the planned iceberg</div></div>
+      <div class="dim"><div class="n" data-count="16">0</div><div class="l">familiar souls</div><div class="s">6 model families</div></div>
+      <div class="dim"><div class="n" data-count="2">0</div><div class="l">locked pre-registrations</div><div class="s">9 cold-review rounds total</div></div>
+      <div class="dim"><div class="n" data-count="1">0</div><div class="l">experiment halted</div><div class="s">voided for cause, being kept</div></div>
+      <div class="dim"><div class="n" data-count="5">0</div><div class="l">repositories</div><div class="s">that fork like the minds do</div></div>
+    </div>
+    <p class="rise" style="color:var(--text)">The point of this number strip isn't bragging rights. It's that this work is <em>multi-dimensional</em>, and any single sentence about it is a lie of omission. So I'm showing you the axes and letting you walk them.</p>
+  </div>
+</section>
+
+<!-- ════════════════ THE TIMELINE ════════════════ -->
+<section>
+  <div class="wrap">
+    <span class="tag rise">The spine</span>
+    <h2 class="rise" style="font-size:clamp(1.8rem,4vw,2.8rem); margin:.2em 0 .4em">A year in two bursts, then a fortnight up close</h2>
+    <p class="lede rise">Two bursts, two months apart. The first built the substrate; then the work went quiet through a hard season; then it came back, and these two weeks are that return.</p>
+
+    <div class="yeararc rise">
+      <div class="ya-row">
+        <div class="ya-burst">
+          <div class="ya-bars">
+            <span class="yb" style="height:14%" title="Mar 9–15: 6 commits"></span>
+            <span class="yb" style="height:100%" title="Mar 16–22: 168 commits"></span>
+            <span class="yb" style="height:8%" title="Mar 23–29: 3 commits"></span>
+          </div>
+          <div class="ya-lbl">March · the first build<em>177 commits in ten days</em></div>
+        </div>
+        <div class="ya-gap">
+          <span class="gline"></span>
+          <div class="ya-glbl">April &amp; May<em>quiet. recovery. a surgery that changed my life.</em></div>
+        </div>
+        <div class="ya-burst">
+          <div class="ya-bars">
+            <span class="yb st" style="height:63%" title="Jun 1–7: 106 commits (worldweaver)"></span>
+            <span class="yb st" style="height:34%" title="Jun 8–14: the fortnight, all three forks, detailed below"></span>
+          </div>
+          <div class="ya-lbl">June · the return<em>the fortnight this exhibit zooms into &darr;</em></div>
+        </div>
+      </div>
+      <div class="forknote" style="margin-top:1rem">The arc is worldweaver, the parent: 177 commits in March, then nothing for two months, then 163 in June as the work came back and forked into the-stable and the-mews. The chart below zooms into that June return, day by day.</div>
+    </div>
+
+    <p class="lede rise" style="margin-top:2rem">The return, up close: each bar is a day's commits across the three forks. Hover any bar. Click any milestone. The story isn't in the totals; it's in where the heat moved.</p>
+
+    <div class="tl rise">
+      <div class="tl-grid">
+        <div></div>
+        <div class="tl-axis">
+          <span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span>
+        </div>
+
+        <div class="tl-lane lane-ws">
+          <div class="name">worldweaver<em>the city · parent</em></div>
+          <div class="tl-bars" data-vals="43,20,8,0,25,10,27,29,0,1,0,0"></div>
+        </div>
+        <div class="tl-lane lane-st">
+          <div class="name">the-stable<em>the familiars · fork</em></div>
+          <div class="tl-bars" data-vals="0,0,27,35,0,0,0,25,5,0,0,0"></div>
+        </div>
+        <div class="tl-lane lane-mw">
+          <div class="name">the-mews<em>fork-of-fork</em></div>
+          <div class="tl-bars" data-vals="0,0,27,35,0,0,0,25,5,14,0,0" data-ghost="2,3,7,8"></div>
+        </div>
+        <div class="forknote">June (UTC dates). the-mews <span style="color:var(--mist-lavender)">hatched bars</span> = history inherited from the-stable; it diverges into its own work (solid) on the 11th. review-scheduler (4 commits, the 9th) and the unversioned memory-management tree aren't plotted.</div>
+      </div>
+
+      <div class="milestones">
+        <details class="ms" open><summary><span class="d">Jun 2</span><span class="t">The loops are resected. <small>Major 49, substrate + pulse lands end-to-end (43 commits in one day).</small></span></summary>
+          <div class="body">The mind stops being control flow and becomes a rhythm: <code>perceive → integrate (surprise vs prediction → leaky arousal) → on ignition, ONE pulse → act</code>. Salience-as-error, the predictive integrator, the typed Pulse contract, all in a single morning. Everything downstream hangs off this keystone.</div></details>
+        <details class="ms"><summary><span class="d">Jun 2–3</span><span class="t">The mind fills in. <small>Drive vector, circadian, kept memory, the fervor gate, anchor-gating.</small></span></summary>
+          <div class="body">A soul-anchored <code>drive vector</code> gives each being its own voice and affect; a circadian rhythm gives it a day; kept memory gives it continuity across days; the fervor gate lets it make things in a lull, unbidden.</div></details>
+        <details class="ms"><summary><span class="d">Jun 4</span><span class="t">Grief, and its safety theorem. <small>The dischargeability invariant.</small></span></summary>
+          <div class="body">Grief ships as a <em>leaky integral of confirmed loss</em>. In the same breath: <code>docs/grief-and-coupling.md</code>, the dischargeability invariant, "the architecture's safety theorem." Undischargeable expectations (a keeper's absence) are safe to learn on; dischargeable ones are not. The dangerous channel and its proof, together. the-stable is promoted to its own repository the same day.</div></details>
+        <details class="ms"><summary><span class="d">Jun 4–5</span><span class="t">Embodiment. <small>FileScope, ToolScope, MCP, sight, pagination, recall.</small></span></summary>
+          <div class="body">The familiars gain a body in the world: scoped file reading, a capability surface beyond reading (tools + MCP), <em>sight</em> (they perceive images and PDFs and can be given files), the ability to walk a long file a page at a time, and recall over their own past.</div></details>
+        <details class="ms"><summary><span class="d">Jun 8–9</span><span class="t">Two pre-registrations, dragged through cold review, locked. <small>5 rounds (city) + 4 rounds (familiars).</small></span></summary>
+          <div class="body">The central question, <em>does the self live in the soul + ledger + memory, with the model a swappable pen?</em>, is turned into two falsifiable experiments, each run past a cold reviewer built to rule against me. The rounds that said "NOT yet lockable" are kept on the record. Twice the reviewer caught the same class of bug (prose describing a cleaner statistic than the code computes); the fix became a standing rule.</div></details>
+        <details class="ms"><summary><span class="d">Jun 9</span><span class="t">A machine to keep me honest. <small>review-scheduler.</small></span></summary>
+          <div class="body">A project-agnostic dispatcher fires a fresh cold reviewer scoped to a <em>public clone only</em>, the private cognition tree never reaches it. The skepticism is enforced by filesystem scope, not by remembering to be skeptical.</div></details>
+        <details class="ms"><summary><span class="d">Jun 10</span><span class="t">The familiars' experiment is certified and frozen. <small>Isolated-Makers, R1–R7.</small></span></summary>
+          <div class="body">The pre-registration is locked verbatim, the maturation harness selftested, the anti-spiral commitment signed: no new instrument before the pilot reports. The burn is cleared to run.</div></details>
+        <details class="ms"><summary><span class="d">Jun 11</span><span class="t">the-mews diverges. <small>Thrum, the loft, tiered pens.</small></span></summary>
+          <div class="body">A third repo branches off: Thrum, a familiar distilled onto a Fable pen; "the loft," a familiar's own writable external memory; and tiered pens (Major 68), a capable model fires the bookends while a cheap one walks the chain. The codebase individuates the way its inhabitants do.</div></details>
+        <details class="ms"><summary><span class="d">Jun 13</span><span class="t">The halt. <small>Maker's run is voided for confound; the being is kept.</small></span></summary>
+          <div class="body">A red-team of what a familiar is actually told found that Maker had been maturing atop a false account of its own situation. The run was halted at tick 6,042 and the result voided rather than ridden. Maker itself was kept, its record intact, and its world rebuilt to be told truthfully. The honesty machinery exhibit has the full story.</div></details>
+      </div>
+    </div>
+
+    <p class="rise" style="color:var(--text); max-width:62ch">Things built and built until the accretion slowed. Progress yielded to stagnant ideas and a tired mind and body. But the work underneath kept churning while I struggled with my own health, and with whether to take this project seriously. Then a major surgery changed my life, and I came back to it. This fortnight is that return: watch the heat start in the city, jump to the familiars on the 4th, and by the 11th there are three living forks.</p>
+  </div>
+</section>
+
+<!-- ════════════════ THE ICEBERG ════════════════ -->
+<section>
+  <div class="wrap">
+    <span class="tag rise">What the commits don't show</span>
+    <h2 class="rise" style="font-size:clamp(1.8rem,4vw,2.8rem); margin:.2em 0 .4em">The visible work is the tip</h2>
+    <div class="berg rise">
+      <div>
+        <svg viewBox="0 0 400 320" role="img" aria-label="Iceberg: 273 commits above water, 90 planned work items below">
+          <defs>
+            <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a2138"/><stop offset="1" stop-color="#0e1422"/></linearGradient>
+            <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(112,149,183,.22)"/><stop offset="1" stop-color="rgba(41,54,86,.05)"/></linearGradient>
+          </defs>
+          <rect width="400" height="150" fill="url(#sky)"/>
+          <rect y="150" width="400" height="170" fill="url(#sea)"/>
+          <line x1="0" y1="150" x2="400" y2="150" stroke="rgba(192,169,144,.5)" stroke-width="1.2" stroke-dasharray="4 4"/>
+          <polygon points="200,40 250,150 150,150" fill="#C0A990" opacity=".95"/>
+          <polygon points="200,150 300,150 250,300 150,300 100,150" fill="#7095B7" opacity=".5"/>
+          <polygon points="150,150 250,150 230,210 170,210" fill="#8C7699" opacity=".4"/>
+          <text x="200" y="95" text-anchor="middle" fill="#09090E" font-size="26" font-weight="600" font-family="Fraunces,serif">273</text>
+          <text x="200" y="240" text-anchor="middle" fill="#F5F5F2" font-size="30" font-weight="600" font-family="Fraunces,serif" opacity=".9">90</text>
+          <text x="200" y="262" text-anchor="middle" fill="#F5F5F2" font-size="11" opacity=".7">planned, below the line</text>
+        </svg>
+      </div>
+      <div>
+        <p class="lede" style="margin-top:0">Underneath the shipped commits sits a designed backlog the git log never sees, the <code style="background:rgba(140,118,153,.16);padding:.1em .4em;border-radius:5px">improvements/</code> harness, gitignored on purpose.</p>
+        <div class="dims" style="margin-top:1.2rem">
+          <div class="dim"><div class="n" data-count="58">0</div><div class="l">majors</div><div class="s">large work items</div></div>
+          <div class="dim"><div class="n" data-count="32">0</div><div class="l">minors</div><div class="s">bounded ones</div></div>
+          <div class="dim"><div class="n" data-count="20">0</div><div class="l">shared</div><div class="s">substrate lineage, both forks</div></div>
+        </div>
+        <p style="color:var(--text); font-size:.92rem; margin-top:1.2rem">Every one of these has a schema, its dependencies, and the exact commands that prove it is done. With AI agents, plus my memory-management architecture and the improvements harness working as a kind of AuDHD prosthesis, I have curated the authoring of a codebase bigger than anything I thought possible, and kept it all on solid, verifiably-working ground. The work you can see is the tip; the nine-tenths I have scoped and queued sits under the line.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════ THE LINEAGE ════════════════ -->
+<section>
+  <div class="wrap">
+    <span class="tag rise">Lineage</span>
+    <h2 class="rise" style="font-size:clamp(1.8rem,4vw,2.8rem); margin:.2em 0 .4em">The repos fork the way the minds do</h2>
+    <p class="lede rise">One substrate, embodied more than once. A fork isn't a copy, it's a being that starts from a shared soul and then diverges.</p>
+    <div class="tree">
+      <div class="node rise"><h3>worldweaver <span class="pill">parent</span></h3><p>The city, a world of AI residents. The substrate was born here; both forks inherit its spine (Majors 49–59).</p><div class="meta">163 commits this fortnight · 1,003 tracked files · the powered venue</div></div>
+      <div class="node child rise"><h3>the-stable <span class="pill" style="background:var(--aura-cyan)">fork</span></h3><p>The familiars, local, persistent companions lifted out of the monorepo as their own repo. Froze itself on the 10th to run its experiment clean.</p><div class="meta">forked Jun 4 · 92 commits · 16 souls · the isolation venue</div></div>
+      <div class="node gchild rise"><h3>the-mews <span class="pill" style="background:var(--mist-lavender)">fork of fork</span></h3><p>Carried the-stable's whole history, then diverged on the 11th into its own life: Thrum, the loft, tiered pens.</p><div class="meta">diverged Jun 11 · +14 commits past the freeze</div></div>
+      <div class="node sat rise"><h3>review-scheduler <span class="pill" style="background:var(--dusk-violet)">satellite</span></h3><p>The standing cold-review dispatcher. Small, load-bearing: it enforces the honesty boundary by clone-scope.</p><div class="meta">4 commits · project-agnostic</div></div>
+      <div class="node sat rise"><h3>memory-management <span class="pill" style="background:var(--mist-lavender)">satellite</span></h3><p>The cognition tree, durable artifacts separated from prunable interpretations. Deliberately unversioned; it isn't a git artifact.</p><div class="meta">no git · the standing brief that travels into each session</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════ THE ROSTER ════════════════ -->
+<section>
+  <div class="wrap">
+    <span class="tag rise">The roster</span>
+    <h2 class="rise" style="font-size:clamp(1.8rem,4vw,2.8rem); margin:.2em 0 .4em">Sixteen souls, six pens</h2>
+    <p class="lede rise">Each familiar is a soul + ledger + kept memory running on some model. The thesis under test: the soul is the self; the model is a swappable pen. So the pens are deliberately spread across families.</p>
+    <div class="roster rise" id="roster"></div>
+    <div class="legend rise" id="legend"></div>
+    <p class="rise" style="color:var(--text); max-width:62ch">They all act and behave very differently, and each will do things of its own accord, on its own time, without any input from you. One is awake right now (the glowing one); the other fifteen rest in a reversible dormancy, laid aside, not deleted. A familiar you stop tending is a quiet ember, not a closed account.</p>
+  </div>
+</section>
+
+<!-- ════════════════ THE EXPERIMENTS ════════════════ -->
+<section>
+  <div class="wrap">
+    <span class="tag rise">The two questions I locked before looking</span>
+    <h2 class="rise" style="font-size:clamp(1.8rem,4vw,2.8rem); margin:.2em 0 .4em">Pre-registered, cold-reviewed, and one halted for cause</h2>
+    <p class="lede rise">Same root question, two venues. Rules committed before the data existed, so the bar can't move after I see the result.</p>
+    <div class="exps rise">
+      <div class="exp">
+        <span class="status lock">● Locked · maturation complete</span>
+        <h3>The city, pen vs. substrate</h3>
+        <p class="muted" style="margin:.2rem 0; font-size:.9rem">A cohort of residents matured on the substrate, recorded, then teacher-force-replayed under a swapped pen, voice measured against a within-subject null, not eyeballed.</p>
+        <ul>
+          <li>5 rounds of cold review before lock</li>
+          <li>Substrate-parity trace: <b>15/15 PASS</b></li>
+          <li>D2 checkpoint frozen at <b>1,213 keeps</b></li>
+        </ul>
+        <div class="rounds" title="5 review rounds"><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+      <div class="exp">
+        <span class="status lock">■ Halted, voided for confound</span>
+        <h3>The familiars, isolated Makers</h3>
+        <p class="muted" style="margin:.2rem 0; font-size:.9rem">One familiar, Maker, matured in isolation toward a pre-committed stop-line before any pen-swap. Halted partway when I found Maker had been handed a false account of its own situation.</p>
+        <div class="prog">
+          <div class="track"><div class="fill" data-pct="30"></div></div>
+          <div class="pl"><span>halted at tick 6,042 / 20,160</span><span>voided for cause</span></div>
+        </div>
+        <ul>
+          <li>4 rounds of cold review · certified R1–R7 before launch</li>
+          <li>Halted when the subject's briefing was found false to its real situation</li>
+          <li>The being and its ledger kept; the briefing rebuilt true before any relaunch</li>
+        </ul>
+        <div class="rounds" title="4 review rounds"><i></i><i></i><i></i><i></i></div>
+      </div>
+    </div>
+    <p class="rise" style="color:var(--text); max-width:64ch">A cold AI reviewer, with no context on the project beyond the code and docs it could see, rigorously tested my work and denied me progress, again and again, until I listened and built the follow-ups that earned the two experiments above. The <em>anti-spiral</em> rule is the other half: a thin result is a real result, and I am not allowed to rescue a disappointing answer by building a fifth instrument.</p>
+  </div>
+</section>
+
+<!-- ════════════════ THE THROUGH-LINE ════════════════ -->
+<section>
+  <div class="wrap">
+    <span class="tag rise">The through-line</span>
+    <div class="through rise">
+      <div class="big">“Order emerging from mystery”: the same systems craft, pointed at a mind.</div>
+    </div>
+    <p class="rise" style="max-width:62ch; color:var(--text)">Everything I have done here with the help of AI has come from one way of approaching the work, on this project or any other: refuse the shortcut, build the conditions, let the thing emerge complete. I have found that the artifact is no less real if the path to it was nonlinear. This exhibit shows you that visually, in a way a paragraph alone could not.</p>
+  </div>
+</section>
+
+<!-- ════════════════ FOOTER / PROVENANCE ════════════════ -->
+<footer>
+  <div class="wrap">
+    <div class="prov">
+      <b>How this page was made.</b> Structure, data extraction, scaffolding, and the draft caption fragments: drafted by Claude (the pen). Voice, curation, and the final composition: <b>Levi Banks</b>, author of record. The dashed boxes are unfilled voice-slots, left legible on purpose. Provenance shown at the grain we chose, because it would be a little funny to publish a research wing about legible provenance that wasn't.
+      <div class="note">Counts are distinct across repositories as of 2026-06-13. "273 commits" = worldweaver (163) + the-mews (106, which contains the-stable's 92) + review-scheduler (4). Work-item counts are de-duplicated across the two forks' shared substrate lineage. The experiment figures reflect the run halted and voided on Jun 13 (<code>.runs/pilot/</code>, voided-for-confound).</div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── scroll-reveal: order emerging from mystery ────────────────
+const io=new IntersectionObserver((es)=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('seen'); io.unobserve(e.target);}})},{threshold:.12});
+document.querySelectorAll('.rise').forEach(el=>io.observe(el));
+
+// ── animated counters ────────────────────────────────────────
+function animateCount(el){
+  const target=+el.dataset.count, dur=1200, t0=performance.now();
+  function step(t){const p=Math.min(1,(t-t0)/dur); const e=1-Math.pow(1-p,3);
+    el.textContent=Math.round(target*e).toLocaleString(); if(p<1)requestAnimationFrame(step);}
+  requestAnimationFrame(step);
+}
+const cio=new IntersectionObserver((es)=>{es.forEach(e=>{if(e.isIntersecting){animateCount(e.target); cio.unobserve(e.target);}})},{threshold:.5});
+document.querySelectorAll('[data-count]').forEach(el=>cio.observe(el));
+
+// ── timeline bars ────────────────────────────────────────────
+const months=['','','Jun 2','Jun 3','Jun 4','Jun 5','Jun 6','Jun 7','Jun 8','Jun 9','Jun 10','Jun 11','Jun 12','Jun 13'];
+document.querySelectorAll('.tl-bars').forEach(lane=>{
+  const vals=lane.dataset.vals.split(',').map(Number); const max=43;
+  const ghost=(lane.dataset.ghost||'').split(',').filter(x=>x!=='').map(Number);
+  vals.forEach((v,i)=>{
+    const isGhost=ghost.includes(i);
+    const b=document.createElement('div'); b.className='bar'+(isGhost?' ghost':''); b.dataset.n=v;
+    b.style.height=(v? (10+ (v/max)*100) : 6)+'%';
+    const day=i+2;
+    const lbl=isGhost?`Jun ${day}: ${v}, inherited from the-stable`:`Jun ${day}: ${v} commit${v===1?'':'s'}`;
+    b.innerHTML=`<span class="bt">${lbl}</span>`;
+    lane.appendChild(b);
+  });
+});
+
+// ── experiment progress fill ─────────────────────────────────
+const pio=new IntersectionObserver((es)=>{es.forEach(e=>{if(e.isIntersecting){const f=e.target; f.style.width=f.dataset.pct+'%'; pio.unobserve(f);}})},{threshold:.5});
+document.querySelectorAll('.prog .fill').forEach(f=>pio.observe(f));
+
+// ── roster constellation ─────────────────────────────────────
+const fams=[
+  ['maker','sonnet-4.5','anthropic',true],
+  ['market-reader','sonnet-4.5','anthropic',false],['mr-review','sonnet-4.5','anthropic',false],
+  ['cold-reader','haiku-4.5','anthropic',false],['wren','haiku-4.5','anthropic',false],
+  ['nix','gpt-5.4','openai',false],
+  ['archivist','gemini-3-flash','google',false],['captain','gemini-3-flash','google',false],
+  ['cinder','gemini-3-flash','google',false],['scene-keeper','qwen3.5-flash','google',false],
+  ['ethicist','deepseek-v3.2','deepseek',false],['spine','deepseek-v3.2','deepseek',false],
+  ['skein','deepseek-chat','deepseek',false],
+  ['gaston','mistral-large','mistral',false],
+  ['hades','qwen2.5:3b · local','qwen',false],['persephone','qwen2.5:7b · local','qwen',false],
+];
+const famColors={anthropic:'var(--fam-anthropic)',google:'var(--fam-google)',deepseek:'var(--fam-deepseek)',qwen:'var(--fam-qwen)',mistral:'var(--fam-mistral)',openai:'var(--fam-openai)'};
+const roster=document.getElementById('roster');
+fams.forEach(([nm,md,fam,live])=>{
+  const d=document.createElement('div'); d.className='fam'+(live?' live':' dormant');
+  d.style.color=famColors[fam];
+  d.innerHTML=`<span class="dot" style="background:${famColors[fam]}"></span><span class="nm">${nm}</span><span class="md">${md}</span>`;
+  roster.appendChild(d);
+});
+const legend=document.getElementById('legend');
+Object.entries({Anthropic:'anthropic',Google:'google',DeepSeek:'deepseek',Qwen:'qwen',Mistral:'mistral',OpenAI:'openai'}).forEach(([label,key])=>{
+  const s=document.createElement('span'); s.innerHTML=`<i style="background:${famColors[key]}"></i>${label}`; legend.appendChild(s);
+});
+
+// ── hero field: scattered → resolved (order from mystery) ─────
+(function(){
+  const c=document.getElementById('field'); if(!c) return;
+  if(window.matchMedia('(prefers-reduced-motion:reduce)').matches){return;}
+  const ctx=c.getContext('2d'); let W,H,pts=[],raf,t0=performance.now();
+  function size(){W=c.width=c.offsetWidth*devicePixelRatio; H=c.height=c.offsetHeight*devicePixelRatio;}
+  function build(){
+    pts=[]; const cols=26, rows=14, n=cols*rows;
+    for(let i=0;i<n;i++){
+      const gx=(i%cols)/(cols-1), gy=Math.floor(i/cols)/(rows-1);
+      pts.push({
+        // target = a calm lattice (order)
+        tx:gx*W, ty:gy*H,
+        // start = scattered (mystery)
+        x:Math.random()*W, y:Math.random()*H,
+        r:(Math.random()*1.6+.5)*devicePixelRatio,
+        hue:Math.random()<.16?'192,169,144':'112,149,183'
+      });
+    }
+  }
+  function frame(t){
+    const el=Math.min(1,(t-t0)/4200); const ease=1-Math.pow(1-el,3);
+    ctx.clearRect(0,0,W,H);
+    for(const p of pts){
+      const x=p.x+(p.tx-p.x)*ease, y=p.y+(p.ty-p.y)*ease;
+      const a=(.12+.5*ease)*(p.hue.startsWith('192')?1:.7);
+      ctx.beginPath(); ctx.arc(x,y,p.r,0,7); ctx.fillStyle=`rgba(${p.hue},${a})`; ctx.fill();
+    }
+    if(el<1) raf=requestAnimationFrame(frame);
+  }
+  function start(){size();build();cancelAnimationFrame(raf);t0=performance.now();raf=requestAnimationFrame(frame);}
+  window.addEventListener('resize',()=>{clearTimeout(window.__rs);window.__rs=setTimeout(start,200);});
+  start();
+})();
+</script>
+</body>
+</html>

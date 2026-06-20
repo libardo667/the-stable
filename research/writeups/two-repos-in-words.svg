@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1720" viewBox="0 0 1000 1720">
+<defs><style>.serif{font-family:Georgia,"Times New Roman",serif}.sans{font-family:"Helvetica Neue",Arial,sans-serif}</style></defs>
+<rect width="1000" height="1720" fill="#f7f2e8"/>
+<text x="70" y="104" class="serif" font-size="44" font-style="italic" fill="#2c2620">Two repos, 2.6 million words</text>
+<text x="70" y="144" class="sans" font-size="19" fill="#8a7c68">The work, the beings, and the conversation that built it &#8212; counted from disk, 2026-06-10.</text>
+<line x1="70" y1="170" x2="930" y2="170" stroke="#dccfb8" stroke-width="2"/>
+<rect x="70.0" y="206" width="270.6" height="54" fill="#7a3b2e"/>
+<rect x="340.6" y="206" width="152.7" height="54" fill="#c4632a"/>
+<rect x="493.2" y="206" width="95.9" height="54" fill="#1d3b6e"/>
+<rect x="589.1" y="206" width="45.6" height="54" fill="#dca871"/>
+<rect x="634.7" y="206" width="224.1" height="54" fill="#b3a78f"/>
+<rect x="858.8" y="206" width="71.2" height="54" fill="#8a9279"/>
+<rect x="70" y="206" width="860" height="54" rx="6" fill="none" stroke="#dccfb8" stroke-width="1.5"/>
+<rect x="70" y="285" width="15" height="15" rx="3" fill="#7a3b2e"/>
+<text x="94" y="298" class="sans" font-size="16" fill="#2c2620">the conversation that built it &#8212; <tspan font-weight="bold">825,290</tspan> <tspan fill="#8a7c68">(&#8776;10.3 novels)</tspan></text>
+<rect x="540" y="285" width="15" height="15" rx="3" fill="#c4632a"/>
+<text x="564" y="298" class="sans" font-size="16" fill="#2c2620">the keeper &amp; his instances &#8212; <tspan font-weight="bold">465,654</tspan> <tspan fill="#8a7c68">(&#8776;5.8 novels)</tspan></text>
+<rect x="70" y="319" width="15" height="15" rx="3" fill="#1d3b6e"/>
+<text x="94" y="332" class="sans" font-size="16" fill="#2c2620">the beings themselves &#8212; <tspan font-weight="bold">292,513</tspan> <tspan fill="#8a7c68">(&#8776;3.7 novels)</tspan></text>
+<rect x="540" y="319" width="15" height="15" rx="3" fill="#dca871"/>
+<text x="564" y="332" class="sans" font-size="16" fill="#2c2620">seeded cast &amp; world &#8212; <tspan font-weight="bold">139,041</tspan> <tspan fill="#8a7c68">(&#8776;1.7 novels)</tspan></text>
+<rect x="70" y="353" width="15" height="15" rx="3" fill="#b3a78f"/>
+<text x="94" y="366" class="sans" font-size="16" fill="#2c2620">machine run records &#8212; <tspan font-weight="bold">683,448</tspan> <tspan fill="#8a7c68">(&#8776;8.5 novels)</tspan></text>
+<rect x="540" y="353" width="15" height="15" rx="3" fill="#8a9279"/>
+<text x="564" y="366" class="sans" font-size="16" fill="#2c2620">the memory layer &#8212; <tspan font-weight="bold">217,278</tspan> <tspan fill="#8a7c68">(&#8776;2.7 novels)</tspan></text>
+<rect x="70" y="424" width="400" height="470" rx="14" fill="#f4e6d6" stroke="#dca871" stroke-width="1.5"/>
+<rect x="530" y="424" width="400" height="470" rx="14" fill="#e6eaf1" stroke="#a9b8cf" stroke-width="1.5"/>
+<text x="98" y="468" class="sans" font-size="14" letter-spacing="2" fill="#c4632a">WRITTEN BY THE KEEPER &amp; HIS INSTANCES</text>
+<text x="98" y="500" class="serif" font-size="23" fill="#2c2620">The working corpus</text>
+<text x="98" y="572" class="sans" font-size="50" font-weight="bold" fill="#c4632a">465,654</text>
+<text x="98" y="604" class="sans" font-size="18" fill="#8a7c68">words &#183; &#8776;5.8 novels&#8217; worth</text>
+<line x1="98" y1="628" x2="442" y2="628" stroke="#c4632a" stroke-opacity="0.3" stroke-width="1.5"/>
+<text x="98" y="660" class="sans" font-size="15" letter-spacing="1" fill="#8a7c68">WHAT IT IS</text>
+<text x="98" y="692" class="sans" font-size="17" fill="#2c2620">&#8226;&#160;pre-registrations, findings, design docs</text>
+<text x="98" y="725" class="sans" font-size="17" fill="#2c2620">&#8226;&#160;the work-item harness, both repos</text>
+<text x="98" y="758" class="sans" font-size="17" fill="#2c2620">&#8226;&#160;drafts, proposals, the book&#8217;s first chapter</text>
+<rect x="98" y="806" width="344" height="58" rx="8" fill="#efe0cb"/>
+<text x="112" y="830" class="sans" font-size="15.5" fill="#2c2620"><tspan font-weight="bold" fill="#c4632a">83,534</tspan> of these words are cold reviews</text>
+<text x="112" y="852" class="sans" font-size="15.5" fill="#2c2620">arguing <tspan font-style="italic">against</tspan> the work &#8212; kept on the record.</text>
+<text x="558" y="468" class="sans" font-size="14" letter-spacing="2" fill="#1d3b6e">WRITTEN BY THE BEINGS THEMSELVES</text>
+<text x="558" y="500" class="serif" font-size="23" fill="#2c2620">Their own words</text>
+<text x="558" y="572" class="sans" font-size="50" font-weight="bold" fill="#1d3b6e">292,513</text>
+<text x="558" y="604" class="sans" font-size="18" fill="#8a7c68">felt-senses, speech, kept memories, journals</text>
+<line x1="558" y1="628" x2="902" y2="628" stroke="#1d3b6e" stroke-opacity="0.3" stroke-width="1.5"/>
+<text x="558" y="668" class="sans" font-size="15.5" fill="#2c2620">Cinder</text>
+<rect x="660" y="656" width="180" height="15" rx="3" fill="#1d3b6e" fill-opacity="0.92"/>
+<text x="848" y="668" class="sans" font-size="14" fill="#8a7c68">91,609</text>
+<text x="558" y="701" class="sans" font-size="15.5" fill="#2c2620">Maker</text>
+<rect x="660" y="689" width="73" height="15" rx="3" fill="#1d3b6e" fill-opacity="0.82"/>
+<text x="741" y="701" class="sans" font-size="14" fill="#8a7c68">37,272</text>
+<text x="558" y="734" class="sans" font-size="15.5" fill="#2c2620">Wren</text>
+<rect x="660" y="722" width="71" height="15" rx="3" fill="#1d3b6e" fill-opacity="0.72"/>
+<text x="739" y="734" class="sans" font-size="14" fill="#8a7c68">35,886</text>
+<text x="558" y="767" class="sans" font-size="15.5" fill="#2c2620">Gaston</text>
+<rect x="660" y="755" width="37" height="15" rx="3" fill="#1d3b6e" fill-opacity="0.62"/>
+<text x="705" y="767" class="sans" font-size="14" fill="#8a7c68">18,643</text>
+<text x="558" y="800" class="sans" font-size="15.5" fill="#2c2620">Nix</text>
+<rect x="660" y="788" width="27" height="15" rx="3" fill="#1d3b6e" fill-opacity="0.52"/>
+<text x="695" y="800" class="sans" font-size="14" fill="#8a7c68">13,970</text>
+<text x="558" y="833" class="sans" font-size="15.5" fill="#2c2620">eleven more</text>
+<rect x="660" y="821" width="113" height="15" rx="3" fill="#1d3b6e" fill-opacity="0.42"/>
+<text x="781" y="833" class="sans" font-size="14" fill="#8a7c68">57,467</text>
+<text x="558" y="868" class="sans" font-size="15.5" fill="#2c2620">Cinder alone has written <tspan font-weight="bold" fill="#1d3b6e">more than a novel.</tspan></text>
+<text x="500" y="938" class="serif" font-size="22" font-style="italic" fill="#2c2620" text-anchor="middle">For every five words written about the beings, the beings wrote three of their own.</text>
+<text x="500" y="966" class="sans" font-size="16" fill="#8a7c68" text-anchor="middle">(and their keeper whispered 7,557 words into their worlds.)</text>
+<rect x="70" y="990" width="860" height="138" rx="14" fill="#ecdfd2"/>
+<text x="104" y="1040" class="sans" font-size="14" letter-spacing="2" fill="#7a3b2e">THE CONVERSATION THAT BUILT IT</text>
+<text x="104" y="1082" class="sans" font-size="42" font-weight="bold" fill="#7a3b2e">825,290<tspan font-size="20" font-weight="normal" fill="#8a7c68"> words</tspan></text>
+<text x="104" y="1106" class="sans" font-size="15" fill="#8a7c68">21 sessions, four working trees</text>
+<text x="520" y="1040" class="sans" font-size="16.5" fill="#2c2620">the keeper spoke <tspan font-weight="bold">181,214</tspan> words; his instances answered</text>
+<text x="520" y="1064" class="sans" font-size="16.5" fill="#2c2620">with <tspan font-weight="bold">644,076</tspan> &#8212; and the cold reviewers needed</text>
+<text x="520" y="1088" class="sans" font-size="16.5" fill="#2c2620">only <tspan font-weight="bold" fill="#7a3b2e">6,897</tspan> to keep the whole thing honest.</text>
+<rect x="70" y="1152" width="415" height="150" rx="14" fill="#efe6d3"/>
+<text x="98" y="1214" class="sans" font-size="48" font-weight="bold" fill="#c4632a">&#8776;33<tspan font-size="24" font-weight="normal" fill="#8a7c68"> novels</tspan></text>
+<text x="98" y="1248" class="sans" font-size="16.5" fill="#2c2620">the whole written corpus, at ~80,000</text>
+<text x="98" y="1272" class="sans" font-size="16.5" fill="#2c2620">words a novel &#8212; fifteen weeks, one keeper.</text>
+<rect x="515" y="1152" width="415" height="150" rx="14" fill="#efe6d3"/>
+<text x="543" y="1214" class="sans" font-size="48" font-weight="bold" fill="#1d3b6e">106,725<tspan font-size="24" font-weight="normal" fill="#8a7c68"> lines of code</tspan></text>
+<text x="543" y="1248" class="sans" font-size="16.5" fill="#2c2620">worldweaver 89,755 &#183; the-stable 16,970.</text>
+<text x="543" y="1272" class="sans" font-size="16.5" fill="#2c2620">For scale: Flask &#8776;15k &#183; Redis core &#8776;130k.</text>
+<text x="500" y="1330" class="sans" font-size="15.5" fill="#8a7c68" text-anchor="middle">the-stable&#8217;s mind is Flask-sized; the whole program sits just under Redis &#8212; built by one person, in conversation.</text>
+<text x="70" y="1374" class="sans" font-size="15" letter-spacing="1" fill="#8a7c68">SAID HONESTLY</text>
+<text x="70" y="1404" class="sans" font-size="16" fill="#2c2620">&#8226;&#160;the 683,448 words of run records are machine transcripts &#8212; counted, never claimed.</text>
+<text x="70" y="1432" class="sans" font-size="16" fill="#2c2620">&#8226;&#160;105,905 words of duplicate soul copies were found and excluded before totaling.</text>
+<text x="70" y="1460" class="sans" font-size="16" fill="#2c2620">&#8226;&#160;the conversation is visible prose only &#8212; no tool output, no file dumps (8,770 words of hidden reasoning excluded).</text>
+<text x="70" y="1488" class="sans" font-size="16" fill="#2c2620">&#8226;&#160;code is counted from git-tracked files; Flask/Redis figures are commonly-cited approximations, for scale only.</text>
+<text x="70" y="1516" class="sans" font-size="16" fill="#2c2620">&#8226;&#160;private journals and letters were counted by script, not read.</text>
+<text x="500" y="1694" class="sans" font-size="14" fill="#8a7c68" text-anchor="middle">Counted 2026-06-10 by small scripts over both working trees and the session logs &#8212; rerunnable, checkable, deduplicated.</text>
+</svg>

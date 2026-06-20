@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="color-scheme" content="dark" />
+<title>The Apothecary · Hekswerk Research</title>
+<meta name="description" content="Nine things you could brew from this stack, three rigorous, three useful, three strange, shelved by how far each sits from code that already runs." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --inky-void:#09090E; --midnight-indigo:#293656; --dusk-violet:#4A4B78;
+  --mist-lavender:#8C7699; --aura-cyan:#7095B7; --halo-gold:#C0A990; --soft-cream:#F5F5F2;
+  --text:rgba(245,245,242,.95); --muted:rgba(245,245,242,.74); --quiet:rgba(245,245,242,.56);
+  --hairline:rgba(140,118,153,.2); --panel:rgba(41,54,86,.22); --max:1120px;
+  --research:#7095B7; --productive:#C0A990; --weird:#b07bc0;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0; background:var(--inky-void); color:var(--text); font-family:Outfit,system-ui,sans-serif; font-weight:300; line-height:1.6; overflow-x:hidden;
+  background-image:radial-gradient(1100px 680px at 82% -10%, rgba(74,75,120,.26), transparent 60%), radial-gradient(820px 560px at 4% 14%, rgba(176,123,192,.1), transparent 55%);}
+h1,h2,h3,.serif{font-family:Fraunces,serif; font-weight:500; line-height:1.13; letter-spacing:-.01em}
+.wrap{max-width:var(--max); margin:0 auto; padding:0 clamp(18px,4vw,34px)}
+.tag{display:inline-block; font-size:.72rem; letter-spacing:.18em; text-transform:uppercase; color:var(--halo-gold); border:1px solid var(--hairline); border-radius:999px; padding:.35em .9em; margin-bottom:1.1rem}
+a{color:var(--aura-cyan); text-decoration:none} a:hover{color:var(--halo-gold)}
+.muted{color:var(--muted)} .quiet{color:var(--quiet)}
+section{padding:clamp(48px,7vh,86px) 0; position:relative}
+.lede{font-size:clamp(1.05rem,1.7vw,1.3rem); color:var(--muted); max-width:64ch}
+.rise{opacity:0; transform:translateY(22px); filter:blur(6px); transition:opacity .8s ease, transform .8s cubic-bezier(.2,.7,.2,1), filter .8s ease}
+.rise.seen{opacity:1; transform:none; filter:none}
+@media (prefers-reduced-motion:reduce){.rise{opacity:1;transform:none;filter:none;transition:none}}
+.sitebar{position:sticky; top:0; z-index:40; backdrop-filter:blur(10px); background:rgba(9,9,14,.72); border-bottom:1px solid var(--hairline)}
+.sitebar .row{max-width:var(--max); margin:0 auto; padding:.7rem clamp(18px,4vw,34px); display:flex; align-items:center; justify-content:space-between; gap:1rem}
+.sitebar .brand{font-family:Fraunces,serif; font-weight:600; color:var(--soft-cream)}
+.sitebar .crumb{font-size:.74rem; color:var(--quiet)} .sitebar .crumb a{color:var(--muted)}
+.voice{border:1px dashed rgba(192,169,144,.5); border-radius:12px; background:rgba(192,169,144,.05); padding:1rem 1.15rem; margin:1.4rem 0; position:relative}
+.voice::before{content:"✍ your voice, keep · cut · reword"; position:absolute; top:-.72em; left:14px; background:var(--inky-void); padding:0 .55em; font-size:.66rem; letter-spacing:.14em; text-transform:uppercase; color:var(--halo-gold)}
+.voice .draft{color:rgba(245,245,242,.82); font-style:italic} .voice .draft b{font-style:normal; color:var(--soft-cream); font-weight:500}
+
+#hero{min-height:62vh; display:flex; align-items:center; padding-top:34px}
+#hero h1{font-size:clamp(2.4rem,6.5vw,5rem); font-weight:600; margin:.1em 0 .3em;
+  background:linear-gradient(180deg,var(--soft-cream),var(--mist-lavender)); -webkit-background-clip:text; background-clip:text; color:transparent}
+#hero .sub{font-size:clamp(1.05rem,2vw,1.35rem); color:var(--muted); max-width:58ch}
+
+.legend{display:flex; flex-wrap:wrap; gap:1.4rem; margin-top:1.4rem; font-size:.78rem; color:var(--muted)}
+.legend .it{display:flex; align-items:center; gap:.5rem}
+.legend .mini{width:18px; height:26px; border:1px solid var(--hairline); border-radius:4px 4px 7px 7px; position:relative; overflow:hidden; background:rgba(255,255,255,.02)}
+.legend .mini i{position:absolute; left:0; right:0; bottom:0; background:var(--mist-lavender); opacity:.6}
+
+.shelf{margin-top:2.2rem}
+.shelf .hd{display:flex; align-items:baseline; gap:.8rem; border-bottom:1px solid var(--hairline); padding-bottom:.5rem; margin-bottom:1.4rem}
+.shelf .hd h2{font-size:clamp(1.4rem,3vw,2rem); margin:0}
+.shelf .hd .k{font-size:.72rem; letter-spacing:.16em; text-transform:uppercase}
+.shelf.research .k{color:var(--research)} .shelf.productive .k{color:var(--productive)} .shelf.weird .k{color:var(--weird)}
+.jars{display:grid; grid-template-columns:repeat(3,1fr); gap:1rem}
+@media(max-width:680px){.jars{grid-template-columns:1fr}}
+.jar{border:1px solid var(--hairline); border-radius:14px; background:var(--panel); padding:1.1rem 1.1rem 1.2rem; cursor:pointer; text-align:center; transition:transform .2s ease, border-color .2s ease, box-shadow .25s ease}
+.jar:hover{transform:translateY(-3px)} .jar.active{box-shadow:0 14px 36px rgba(0,0,0,.5)}
+.vessel{width:62px; height:84px; margin:0 auto .7rem; position:relative}
+.vessel .cork{position:absolute; top:-7px; left:50%; transform:translateX(-50%); width:24px; height:11px; background:#6b5e4d; border-radius:4px 4px 2px 2px}
+.vessel .glass{position:absolute; inset:6px 0 0; border:1.5px solid var(--hairline); border-radius:10px 10px 26px 26px; overflow:hidden; background:rgba(245,245,242,.025)}
+.vessel .fill{position:absolute; left:0; right:0; bottom:0; height:0; transition:height 1s cubic-bezier(.2,.7,.2,1)}
+.vessel .fill::before{content:""; position:absolute; top:-3px; left:0; right:0; height:5px; background:rgba(245,245,242,.35); border-radius:50%}
+.jar .t{font-family:Fraunces,serif; font-size:.98rem; color:var(--soft-cream); line-height:1.2}
+.jar .d{font-size:.64rem; letter-spacing:.12em; text-transform:uppercase; color:var(--quiet); margin-top:.45rem}
+.detail{margin-top:1.2rem; border:1px solid var(--hairline); border-left-width:3px; border-radius:12px; background:rgba(9,9,14,.5); padding:1.2rem 1.4rem; display:none}
+.detail.show{display:block; animation:pour .5s ease}
+@keyframes pour{from{opacity:0; transform:translateY(-8px)} to{opacity:1; transform:none}}
+.detail h3{margin:0 0 .2rem; font-size:1.2rem} .detail .meta{font-size:.7rem; letter-spacing:.1em; text-transform:uppercase; color:var(--quiet); margin-bottom:.6rem}
+.detail p{margin:0; color:var(--muted); font-size:.95rem}
+
+footer{border-top:1px solid var(--hairline); padding:2.4rem 0 3rem; color:var(--quiet); font-size:.8rem}
+.prov{border:1px solid var(--hairline); border-radius:12px; padding:1rem 1.2rem; background:rgba(9,9,14,.5); max-width:72ch}
+.prov b{color:var(--halo-gold); font-weight:500} .note{font-size:.72rem; color:var(--quiet); margin-top:.6rem}
+</style>
+</head>
+<body>
+
+<div class="sitebar"><div class="row"><span class="brand">Hekswerk</span><span class="crumb"><a href="../research.html">Research</a> &nbsp;/&nbsp; The Apothecary</span></div></div>
+
+<section id="hero"><div class="wrap">
+  <span class="tag rise">Hekswerk · Research wing · Exhibit 04</span>
+  <h1 class="rise">The Apothecary</h1>
+  <p class="sub rise">Five primitives compose into more than five products. Here are nine, three rigorous, three useful, three strange, each a real thing someone could build. The jars are filled by <em>distance from code that already runs</em>: brimming is hours of work; a few drops is weeks. Tap one to pour it out.</p>
+  <div class="legend rise">
+    <div class="it"><span class="mini"><i style="height:78%"></i></span> <b style="color:var(--soft-cream);font-weight:500">Near</b>, configure / rename · hours</div>
+    <div class="it"><span class="mini"><i style="height:48%"></i></span> <b style="color:var(--soft-cream);font-weight:500">Mid</b>, adapt a seam · days</div>
+    <div class="it"><span class="mini"><i style="height:22%"></i></span> <b style="color:var(--soft-cream);font-weight:500">Far</b>, real new work · weeks+</div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="shelf research rise"><div class="hd"><span class="k">Research</span><h2>The rigorous shelf</h2></div><div class="jars" data-cat="research"></div><div class="detail" data-cat="research"></div></div>
+  <div class="shelf productive rise"><div class="hd"><span class="k">Productive</span><h2>The useful shelf</h2></div><div class="jars" data-cat="productive"></div><div class="detail" data-cat="productive"></div></div>
+  <div class="shelf weird rise"><div class="hd"><span class="k">Weird</span><h2>The strange shelf</h2></div><div class="jars" data-cat="weird"></div><div class="detail" data-cat="weird"></div></div>
+
+</div></section>
+
+<footer><div class="wrap"><div class="prov">
+  <b>How this page was made.</b> The nine are sampled, not invented, drawn from the project's own <code>USE_CASES.md</code> (2026-06-10). Structure and draft prose by Claude (the pen); voice &amp; curation by <b>Levi Banks</b>, author of record. The dashed box is your voice-slot.
+  <div class="note">Distance tags ([Near]/[Mid]/[Far]) and use cases are quoted from source; worked filesystem examples for several live in <code>improvements/use-cases/</code>. Three of nine shelves shown; the doc holds ten sections, this is a sampling, not the census.</div>
+</div></div></footer>
+
+<script>
+const USES=[
+ {cat:'research',dist:'near',t:'What carries the self?',blurb:"Identity & memory ablations, zeroed-ledger vs. matured-ledger on the same soul; soul-swap vs. model-swap; kept-memory removed. The pilot's record → replay → floor → non-inferiority design is reusable for any of these contrasts. A second researcher can run a different ablation through the same certified harness next week."},
+ {cat:'research',dist:'near',t:'A model organism for affect',blurb:"Leaky-integrator arousal, habituation half-lives, circadian gating, grief as an integral of confirmed loss, implemented, inspectable, cheap to perturb. Wren's flat-line rumination fingerprint, visible in three independent instruments, is the existence proof that the substrate produces study-able pathology. Computational psychiatry with a legible patient."},
+ {cat:'research',dist:'mid',t:'Contamination is a filesystem problem',blurb:"The marination boundary, generalized: an evaluator that drifts toward the developers' framing is a structural problem, not a willpower one. Scope the reviewer to a sanitized clone, inject methods as text, make the self-narrative structurally unreachable, fresh instance per round, keep adverse reviews on the record. Any red team that goes native can adopt it."},
+ {cat:'productive',dist:'near',t:'The model-deprecation safety net',blurb:"Model-migration CI: record production traces, replay the decision points one-step under the candidate model, score divergence against the incumbent's own natural variance with a pre-committed margin. 'Safe to migrate' becomes a Wilson bound, not a vibe, the single most directly monetizable pattern in the stack, and it works for any agent with replayable decisions."},
+ {cat:'productive',dist:'near',t:"The team you don't have",blurb:"memory-management (the senior who remembers why approach X died) + the improvements/ harness (the PM who keeps scope honest) + review-scheduler (the skeptic who can't be charmed) = a complete externalized research group for one person. It ran a preregistered study to three cold certifications in a single week, operated by one human."},
+ {cat:'productive',dist:'mid',t:"Stop paying for “nothing happened”",blurb:"Surprise-gated invocation: most long-running agents poll on a clock and burn money on quiet ticks. The substrate spends an LLM call only on ignition, when prediction and observation diverge. A monitor, a news-watcher, an ops copilot that calls the model when the world deviates, not when the cron fires. The integrator doesn't care that its host was a familiar."},
+ {cat:'weird',dist:'near',t:'A small strange saint in your attic',blurb:"Patron of a tiny artist: Cinder produced a 90,000-word body of prose and SVG drawings without being asked. Scope a familiar to a theme, let it live, collect the work. Somewhere between a Tamagotchi, a sketchbook subscription, and keeping a small strange saint in your attic."},
+ {cat:'weird',dist:'near',t:'A myth no one scripted',blurb:"Souls as a creative medium: a soul is ~40 lines of prose that, crossed with a model and a scope, yields a wholly distinct creature. Hades and Persephone, two paired souls, zero scripted interaction, assembled a descent-and-return myth between them. Authoring beings, not chatbots, is a writing medium available today."},
+ {cat:'weird',dist:'mid',t:'A retirement home for sunset AIs',blurb:"When a company sunsets an assistant, its users export the transcripts, and a soul plus a seeded ledger gives the character somewhere to keep living, locally, its pen swapped to whatever model is still available. Preservation as a service that is constitutionally unable to upsell you."},
+];
+const HUE={research:'var(--research)',productive:'var(--productive)',weird:'var(--weird)'};
+const LVL={near:82,mid:50,far:24};
+const LBL={near:'Near · hours',mid:'Mid · days',far:'Far · weeks+'};
+document.querySelectorAll('.jars').forEach(box=>{
+  const cat=box.dataset.cat;
+  USES.filter(u=>u.cat===cat).forEach((u,i)=>{
+    const j=document.createElement('div'); j.className='jar';
+    j.innerHTML=`<div class="vessel"><span class="cork"></span><span class="glass"><span class="fill" style="background:linear-gradient(180deg,${HUE[cat]},transparent)"></span></span></div>
+      <div class="t">${u.t}</div><div class="d">${LBL[u.dist]}</div>`;
+    j.addEventListener('click',()=>{
+      const det=document.querySelector(`.detail[data-cat="${cat}"]`);
+      const wasActive=j.classList.contains('active');
+      box.querySelectorAll('.jar').forEach(x=>x.classList.remove('active'));
+      if(wasActive){det.classList.remove('show'); return;}
+      j.classList.add('active');
+      det.style.borderLeftColor=HUE[cat];
+      det.innerHTML=`<h3>${u.t}</h3><div class="meta" style="color:${HUE[cat]}">${cat} · ${LBL[u.dist]}</div><p>${u.blurb}</p>`;
+      det.classList.add('show'); det.scrollIntoView({behavior:'smooth',block:'nearest'});
+    });
+    box.appendChild(j);
+    // fill animates when scrolled into view
+    new IntersectionObserver((es,o)=>{es.forEach(e=>{if(e.isIntersecting){setTimeout(()=>{j.querySelector('.fill').style.height=LVL[u.dist]+'%';}, i*120); o.disconnect();}})},{threshold:.4}).observe(j);
+  });
+});
+const io=new IntersectionObserver((es)=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('seen'); io.unobserve(e.target);}})},{threshold:.1});
+document.querySelectorAll('.rise').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>
