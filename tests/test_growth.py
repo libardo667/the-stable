@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Levi Banks
+
 """Tests for growth distillation (Major 58, Phase 1)."""
 
 from pathlib import Path

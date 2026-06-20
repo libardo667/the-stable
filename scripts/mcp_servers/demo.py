@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Levi Banks
+
 """A tiny example MCP stdio server (Major 54, P1 demo) — stdlib only.
 
 A handful of local, no-egress, no-data tools, to prove the MCP path end to end and to give a

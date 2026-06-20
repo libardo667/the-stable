@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Levi Banks
+
 """Calibration tests for the disorientation signal (Major 72, Phase 0).
 
 Each cue must light up on a faithful reproduction of the real Maker episode it was built

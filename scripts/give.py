@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Levi Banks
+
 """Give a familiar a thing (Major 55).
 
 The keeper hands a file to a familiar — a photo, a document, a drawing. It lands in the familiar's

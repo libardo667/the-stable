@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Levi Banks
+
 """A minimal MCP (Model Context Protocol) stdio client (Major 54, P1).
 
 Just enough of MCP to let a familiar use keeper-wired tool servers — no SDK, stdlib only,

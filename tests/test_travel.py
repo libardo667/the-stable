@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Levi Banks
+
 """Tests for inter-world travel parsing (src/familiar/travel.py).
 
 Inter-world travel (hearth ↔ city) is distinguished from within-world movement by its

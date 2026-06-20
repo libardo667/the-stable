@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Levi Banks
+
 """The LLM-backed pulse producer (Major 49, Phase 3).
 
 This is the single LLM call of the architecture. It fires only on ignition: the
@@ -17,6 +20,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -297,6 +301,7 @@ class LLMPulseProducer:
         speaks as long as it needs) and a salvage parse (``_parse_pulse_text``), so a long or malformed
         output is rendered faithfully rather than silently dropped mid-thought. Returns None only on a
         real inference failure or a genuinely empty response."""
+        t0 = time.monotonic()
         try:
             raw = await self._llm.complete(
                 self._identity.composed_system_prompt(self.world_briefing),
@@ -310,6 +315,7 @@ class LLMPulseProducer:
         except InferenceError as exc:
             logger.warning("[%s:pulse] inference failed: %s", self._identity.name, exc)
             return None
+        latency_ms = int((time.monotonic() - t0) * 1000)
         parsed, clean = _parse_pulse_text(raw)
         if parsed is None:
             logger.warning("[%s:pulse] empty response — no pulse this beat", self._identity.name)
@@ -317,10 +323,32 @@ class LLMPulseProducer:
         if not clean:
             logger.warning("[%s:pulse] salvaged a malformed/long pulse — rendered faithfully, not dropped. raw was:\n%s", self._identity.name, str(raw)[:6000])
         try:
-            return Pulse.from_dict(parsed)
+            pulse = Pulse.from_dict(parsed)
         except PulseValidationError as exc:
             logger.warning("[%s:pulse] invalid pulse dropped: %s", self._identity.name, exc)
             return None
+        metabolic = self._metabolic_reading(latency_ms)
+        return replace(pulse, metabolic=metabolic) if metabolic else pulse
+
+    def _metabolic_reading(self, latency_ms: int) -> dict[str, Any] | None:
+        """The cost of the inference that just fired (Minor 63), read from the client that ran it.
+        Strictly additive and absence-tolerant: a stub mind (or a provider that returns no usage)
+        exposes no ``last_usage``, so this returns None and the pulse carries no metabolic field —
+        identical behavior to before. Reads defensively so a non-InferenceClient producer (the test
+        stubs) never breaks."""
+        usage = getattr(self._llm, "last_usage", None)
+        if not usage:
+            return None
+        reading: dict[str, Any] = {
+            "model": str(getattr(self._llm, "last_model", "") or self._model or ""),
+            "prompt_tokens": int(usage.get("prompt_tokens") or 0),
+            "completion_tokens": int(usage.get("completion_tokens") or 0),
+            "latency_ms": latency_ms,
+        }
+        pen_local = getattr(self._llm, "is_local", None)
+        if isinstance(pen_local, bool):
+            reading["pen_local"] = pen_local
+        return reading
 
     async def _dedup_keepsakes(self, pulse: Pulse) -> Pulse:
         """Drop keepsakes that merely restate a memory already held — so the same

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Levi Banks
+
 """Tests for CityWorld — the body a familiar wears when it travels to a city shard.
 
 The substrate is world-agnostic, so CityWorld must satisfy the same WorldClient

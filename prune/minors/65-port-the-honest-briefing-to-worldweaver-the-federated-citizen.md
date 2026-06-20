@@ -5,7 +5,12 @@
 - ID: 65-port-the-honest-briefing-to-worldweaver-the-federated-citizen
 - Type: minor
 - Owner: Levi
-- Status: **pending** — to be done from a WorldWeaver instance (separate repo)
+- Status: **DONE (2026-06-18)** — ported from a WorldWeaver instance. The false `_WORLD_CONTEXT` is
+  deleted; the full-mirror renderer + `BRIEFING_FACT_KEYS` + `unregistered_fact_keys` +
+  `composed_system_prompt` live in `worldweaver/ww_agent/src/identity/loader.py`; `CityWorld.situational_facts()`
+  reports the built citizen facts; `cognitive_core` renders the briefing and logs loudly on drift; the
+  drift-catcher tests (`worldweaver/ww_agent/tests/test_honest_briefing.py`) are green (full ww_agent suite
+  259 passed). See acceptance criteria below.
 - Risk: low (string/render surface + one client method; no behavior targets)
 
 ## Problem
@@ -52,12 +57,32 @@ In the WorldWeaver repo (diverged copy; do not import across the fork seam):
 
 ## Acceptance Criteria
 
-- [ ] No WW resident's rendered system prompt contains the old verdicts (`_FORBIDDEN_VERDICTS`); the false
-      `_WORLD_CONTEXT` is gone.
-- [ ] A WW resident's briefing renders the citizen lines (shared world, human wake, the seam, mobility, mail)
-      from real switches, and **no** governance/recourse/rights claim (vision-only, excluded).
-- [ ] The human-wake line is afterimage-framed (the person never summonable) — dischargeability test passes.
-- [ ] The drift-catcher (capability-coverage + registry-triangle) passes in the WW repo.
+- [x] No WW resident's rendered system prompt contains the old verdicts (`_FORBIDDEN_VERDICTS`); the false
+      `_WORLD_CONTEXT` is gone. — `test_false_world_context_constant_is_gone` + `test_city_briefing_states_facts_and_withholds_verdicts`.
+- [x] A WW resident's briefing renders the citizen lines (shared world, human wake, the seam, mobility, mail)
+      from real switches, and **no** governance/recourse/rights claim (vision-only, excluded). — `CityWorld.situational_facts()`
+      reports only built keys; `test_city_facts_are_registered_and_built` pins that VISION/hearth keys are absent.
+- [x] The human-wake line is afterimage-framed (the person never summonable) — dischargeability test passes.
+      — `test_human_wake_is_afterimage_framed_not_a_summon`.
+- [x] The drift-catcher passes in the WW repo. — `test_briefing_fact_registry_triangle` (renderer == registry ==
+      `src/runtime/world.py` doc) + `test_city_facts_are_registered_and_built` (the world half: never reports an
+      unregistered key). NOTE divergence from the-stable: WW's affordances are standing facts, not `__init__`
+      params, so the capability-coverage half (which enumerates `LocalWorld.__init__` params) maps to the
+      situational_facts-registered guard rather than a param-signature sweep — same intent (no fact escapes the
+      registry), shaped to WW's world body.
+
+## Implementation notes (the fold-back, 2026-06-18)
+
+- **place / peers / players are deliberately NOT standing facts in WW.** Unlike `LocalWorld` (fixed home, known
+  cast), a city resident's location and who-is-present are dynamic — already surfaced every tick through the live
+  scene. Reporting them as standing briefing facts would lie when a shard is momentarily empty. They are exempt-
+  as-per-tick (the same shape as the-stable exempting per-tick weather), so the WW citizen briefing carries the
+  *structural* citizen truths (seam, wake, mobility, mail, substrate-universals) and lets the scene carry the rest.
+- **`travel` is deferred, not denied.** Cross-shard travel exists federation-side, but is not yet a first-class
+  effector a resident can initiate through `CityWorld`; the renderer mirrors the key (fork law) but
+  `situational_facts()` will report it only once it's built here. (Cross-ref the partially-built WW Major 37.)
+- Fork law kept: the renderer is a diverged copy, not an import. The fact schema and the fact/verdict line are
+  identical across both forks, so reconvergence stays a diff.
 
 ## Notes
 

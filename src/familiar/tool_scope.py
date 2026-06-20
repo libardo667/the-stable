@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Levi Banks
+
 """ToolScope: a capability-scoped set of callable tools for a familiar (Major 54, P0).
 
 FileScope lets a familiar PERCEIVE beyond its own files; this is its sibling — a bounded

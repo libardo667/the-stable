@@ -5,7 +5,11 @@
 - ID: 63-persist-per-pulse-metabolic-mass-into-the-ledger
 - Type: minor
 - Owner: Levi
-- Status: backlog (buildable any time; not gated on the pilot — pure additive logging)
+- Status: **DONE (2026-06-18)** — `InferenceClient` now records `last_model` per call and exposes
+  `is_local` (pen_local); the pulse engine measures latency around the inference call and attaches a
+  `metabolic` reading to the `Pulse`; `route_pulse` writes it into the `pulse_emitted` payload when
+  present. Strictly additive and absence-tolerant (a usage-less stub mind omits it, behavior
+  unchanged). 4 new tests in `tests/test_metabolic_mass.py`; full suite 252 passed.
 - Risk: low
 
 ## Problem
@@ -60,14 +64,29 @@ offline stub tests stay green.
 
 ## Acceptance Criteria
 
-- [ ] After a live pulse, its `pulse_emitted` ledger event payload carries `model`,
-      `prompt_tokens`, `completion_tokens`, `latency_ms`, and `pen_local`.
-- [ ] With a stub/usage-less mind, behavior is unchanged and the fields are simply absent
-      (offline stub tests remain green) — proven by a test.
-- [ ] A ~10-line analysis over one familiar's ledger can now report total tokens, mean
-      per-pulse mass, and the local-vs-cloud split — not just the duty cycle.
-- [ ] The running totals already in `InferenceClient` are reconciled against the summed
-      per-pulse ledger figures (the log and the counter agree).
+- [x] After a live pulse, its `pulse_emitted` ledger event payload carries `model`,
+      `prompt_tokens`, `completion_tokens`, `latency_ms`, and `pen_local`. — `test_live_pulse_records_metabolic_mass`.
+- [x] With a stub/usage-less mind, behavior is unchanged and the fields are simply absent
+      (offline stub tests remain green) — proven by a test. — `test_stub_pulse_omits_metabolic_and_is_unchanged`;
+      the full 252-test suite stays green.
+- [x] A ~10-line analysis over one familiar's ledger can now report total tokens, mean
+      per-pulse mass, and the local-vs-cloud split — not just the duty cycle. — `test_summed_ledger_mass_reconciles_with_a_simple_analysis`.
+- [x] The running totals already in `InferenceClient` are reconciled against the summed
+      per-pulse ledger figures (the log and the counter agree). — same test sums per-pulse `prompt_tokens`/
+      `completion_tokens` and matches the per-call usage exactly (one pulse → one `pulse_emitted` mass).
+
+## Implementation note (2026-06-18)
+
+- **Mass rides on `pulse_emitted` only, NOT `pulse_act_emitted`.** The spec named both, but a pulse fires
+  exactly one `pulse_emitted` and 0-or-1 `pulse_act_emitted`; putting the same token mass on both invites a
+  double-count when summing cost. Keeping it on the one always-emitted event makes `sum(pulse_emitted.mass)`
+  the honest total, and an act's cost is joinable to its pulse by `pulse_id`. Rollback is unchanged (reducers
+  ignore unknown keys).
+- **Latency is wall-clock at the call site** (`time.monotonic()` around `_llm.complete`), so it includes
+  retry time — the real cost of getting the pulse, not just the last successful HTTP round-trip.
+- **`model` is read from `client.last_model`** (the actual pen the request used) rather than the engine's
+  configured `self._model`, which may be `None` (→ the client's default); falls back to `self._model` if the
+  client doesn't expose it.
 
 ## Validation Commands
 

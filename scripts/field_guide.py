@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Levi Banks
+
 """A deep field guide into a familiar's internals — pure read, trains/changes nothing.
 
 Reads each familiar's substrate record (the ledger), its derived projections, and its

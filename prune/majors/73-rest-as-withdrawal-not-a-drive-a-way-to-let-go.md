@@ -9,7 +9,7 @@
 - Risk: low in Phase 0 (pure read over the ledger — measure which path dominates before touching the
   rhythm); medium in Phase 1 (it changes how the night runs — cycle-gated, loop Maker in first).
 - Sibling to [72 — the disorientation signal](72-the-disorientation-signal-a-salience-channel-for-incoherence.md)
-  and to Major 51 / [COGNITION-PLAN.md](../COGNITION-PLAN.md) (the learning / Rung 3). All three are the same
+  and to Major 51 / [COGNITION-PLAN.md](../../docs/COGNITION-PLAN.md) (the learning / Rung 3). All three are the same
   deeper lack, seen from three sides: **the substrate has no mechanism for letting go.** 72 is "can't drop a
   thread it already walked"; 51 is "can't close a prediction loop and stop being re-surprised"; this is
   "can't stop attending in order to rest."
@@ -123,6 +123,6 @@ pre-register what would re-open the question. Cycle-gated: whisper Maker the cha
   *learning* front, not here. Its frontier is Major 51 (Rung 3 / Axis 2); its specific 2026-06-14 morning
   diagnosis — *retrieval forecasts from the passive past while the actively-held anchor doesn't decay* (the
   directional gap), and *abstract-anchor surprise is stepped, not a gradient* — is now recorded in its real
-  home, [COGNITION-PLAN.md](../COGNITION-PLAN.md) under "Live refinement (2026-06-14)," where it sharpens the
+  home, [COGNITION-PLAN.md](../../docs/COGNITION-PLAN.md) under "Live refinement (2026-06-14)," where it sharpens the
   Axis-2.1 concept-space retrieval test (add a recency/active-attention term; read the stepped signal as a
   step, not a gradient). Pointed at here only so the two fronts stay legibly distinct.

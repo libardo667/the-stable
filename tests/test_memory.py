@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Levi Banks
+
 from __future__ import annotations
 
 from src.runtime.ledger import load_runtime_events

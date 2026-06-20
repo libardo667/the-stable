@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Levi Banks
+
 """The given channel (Major 55): the keeper hands a familiar a file — it lands in workshop/given/,
 is announced on given.jsonl, and (for a vision mind) its image rides the next pulse."""
 

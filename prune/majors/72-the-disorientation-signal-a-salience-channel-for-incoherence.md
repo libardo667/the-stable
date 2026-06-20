@@ -17,7 +17,7 @@
   the original (2026-06-14).
 - Risk: low in Phase 0 (pure read, no behavior change — measure first, the project's discipline); medium in
   Phase 1 (it convenes a reasoning pass that changes what the resident does — cycle-gated, loop Maker in).
-- The one genuinely new piece under [COGNITION-PLAN.md](../COGNITION-PLAN.md) **Lever 2** (the full-fat
+- The one genuinely new piece under [COGNITION-PLAN.md](../../docs/COGNITION-PLAN.md) **Lever 2** (the full-fat
   orienting reasoning gear). The loop (Major 59 `continue_tool`), the instruments (recall/search, made
   honest in Major 71), and the cost-gating (Major 68 tiered pens) already exist or are portable — *this
   signal is what they were missing.*

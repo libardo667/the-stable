@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Levi Banks
+
 """The typed pulse contract and its back-prop routing layer (Major 49, Phase 1).
 
 One ignition produces one ``Pulse``: the single LLM call returns JSON, which is
@@ -258,6 +261,12 @@ class Pulse:
     self_delta: SelfDelta = field(default_factory=SelfDelta)
     trace_verdicts: list[TraceVerdict] = field(default_factory=list)
     keepsakes: list[Keepsake] = field(default_factory=list)
+    # Metabolic mass (Minor 63): the cost of the inference that produced THIS pulse —
+    # {model, prompt_tokens, completion_tokens, latency_ms, pen_local}. Not part of the LLM
+    # output shape (so it is absent from to_dict/from_dict); the pulse engine attaches it after
+    # the call from InferenceClient.last_usage. None when the producer had no usage to report
+    # (a stub mind, or a provider that returns no usage) — then the ledger event simply omits it.
+    metabolic: dict[str, Any] | None = None
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "Pulse":
@@ -383,11 +392,17 @@ def route_pulse(
     cast_ts = str(now).strip() if now else _utc_now_iso()
     pulse_id = f"pls-{uuid.uuid4().hex[:12]}"
 
-    # Full provenance: the exact validated pulse that fired.
+    # Full provenance: the exact validated pulse that fired. Metabolic mass (Minor 63) rides on
+    # this event only — the one event every ignition emits — so summing pulse_emitted gives total
+    # cost with no double-count; an act's mass is joinable to its pulse by ``pulse_id``. Absent when
+    # the producer reported no usage (a stub mind), so absence-tolerant by construction.
+    pulse_emitted_payload: dict[str, Any] = {"pulse_id": pulse_id, "cast_ts": cast_ts, "pulse": pulse.to_dict()}
+    if pulse.metabolic:
+        pulse_emitted_payload["metabolic"] = dict(pulse.metabolic)
     append_runtime_event(
         memory_dir,
         event_type="pulse_emitted",
-        payload={"pulse_id": pulse_id, "cast_ts": cast_ts, "pulse": pulse.to_dict()},
+        payload=pulse_emitted_payload,
     )
 
     # felt_sense — readout only, to the chronicle; never routed as control.

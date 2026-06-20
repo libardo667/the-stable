@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Levi Banks
+
 from __future__ import annotations
 
 import asyncio
@@ -60,8 +63,11 @@ class InferenceClient:
         self._api_key = api_key
         self._default_model = default_model
         # Lightweight usage accounting — lets callers measure real token cost
-        # (e.g. the cost-curve harness) without re-plumbing every call site.
+        # (e.g. the cost-curve harness, Minor 63's per-pulse metabolic mass) without
+        # re-plumbing every call site. ``last_usage``/``last_model`` reflect the most
+        # recent call; the totals are the running sum.
         self.last_usage: dict[str, Any] = {}
+        self.last_model: str = ""
         self.total_calls = 0
         self.total_prompt_tokens = 0
         self.total_completion_tokens = 0
@@ -73,6 +79,14 @@ class InferenceClient:
             },
             timeout=httpx.Timeout(timeout),
         )
+
+    @property
+    def is_local(self) -> bool:
+        """Best-effort: is the pen a locally-hosted model (Ollama / localhost) rather than a cloud
+        provider? Derived from the inference base URL so later analysis can split local-pen pulses
+        from cloud-pen pulses (Minor 63's ``pen_local``) without re-deriving it from config."""
+        u = self._base_url.lower()
+        return any(h in u for h in ("localhost", "127.0.0.1", "0.0.0.0", "[::1]", "host.docker.internal", "ollama")) or ":11434" in u
 
     async def complete(
         self,
@@ -126,6 +140,7 @@ class InferenceClient:
 
         usage = response.get("usage", {}) or {}
         self.last_usage = dict(usage)
+        self.last_model = str(payload["model"])
         self.total_calls += 1
         self.total_prompt_tokens += int(usage.get("prompt_tokens") or 0)
         self.total_completion_tokens += int(usage.get("completion_tokens") or 0)

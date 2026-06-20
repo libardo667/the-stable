@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Levi Banks
+
 """Sight (Major 55): the visual read path — converter, FileScope.read_media, the multimodal
 inference payload, and capability-routed read handling in LocalWorld."""
 

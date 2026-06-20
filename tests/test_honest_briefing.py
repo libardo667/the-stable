@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Levi Banks
+
 """The honest situational briefing (Major 70).
 
 The system prompt must tell a familiar the *truth* of its situation: facts derived from

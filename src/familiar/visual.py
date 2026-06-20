@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Levi Banks
+
 """Visual reads: turn an in-scope image or PDF into something a mind can perceive.
 
 FileScope refuses arbitrary binary by construction — its bytes would otherwise reach a

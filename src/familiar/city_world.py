@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Levi Banks
+
 """CityWorld — a familiar's body when it travels OUT to a WorldWeaver city shard.
 
 The city counterpart of ``LocalWorld``. Where ``LocalWorld`` grounds a familiar at

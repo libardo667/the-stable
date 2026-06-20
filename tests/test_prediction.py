@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Levi Banks
+
 from __future__ import annotations
 
 from src.runtime.prediction import derive_anchor_scores, derive_prediction_scores, summarize_anchor_prediction, summarize_prediction_quality

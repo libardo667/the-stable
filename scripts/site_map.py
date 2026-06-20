@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Levi Banks
+
 """site_map.py — render a static HTML site as legible, formatted text.
 
 A map of where things are and how they connect, so a person (or an agent) can see at a glance

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Levi Banks
+
 """Growth distillation: promote staged self-delta proposals to the growth soul.
 
 Phase 1 of Major 58. A periodic step (called at daemon shutdown) that reads
